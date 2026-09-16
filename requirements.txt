@@ -1,0 +1,10 @@
+mujoco>=3.2
+numpy>=1.26
+torch>=2.3
+openvino>=2024.4
+nncf>=2.12
+imageio[ffmpeg]>=2.34
+pillow>=10.0
+# optional: LLM planner back-end on Intel (see planner/language.py)
+# openvino-genai>=2024.4
+# optimum[openvino]>=1.22
