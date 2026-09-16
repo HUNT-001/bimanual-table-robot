@@ -1,6 +1,5 @@
+﻿data/
 __pycache__/
-*.pyc
-preview_seed3.mp4
-videos/
-data/
-results/
+models/ov_cache/
+models/*.pt
+videos/seed_*.mp4
