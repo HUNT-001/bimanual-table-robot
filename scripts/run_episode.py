@@ -27,6 +27,7 @@ def main():
     ap.add_argument("--no-shadows", action="store_true", help="faster software rendering")
     ap.add_argument("--policy", default=None, help="OpenVINO IR (.xml) or torch ckpt (.pt) for learned pick skill")
     ap.add_argument("--device", default="CPU")
+    ap.add_argument("--policy-objects", default="plate,mug", help="comma list or 'all'")
     ap.add_argument("--json", default=None)
     args = ap.parse_args()
 
@@ -45,7 +46,8 @@ def main():
         env.model.light_castshadow[:] = 0
     hw = (args.video_height, args.video_height * 4 // 3)
     vw = VideoWriter(args.video, args.instruction, args.seed, every=args.video_every, hw=hw) if args.video else None
-    ex = Executor(env, policy=policy, frame_cb=vw.on_step if vw else None)
+    ex = Executor(env, policy=policy, frame_cb=vw.on_step if vw else None,
+                  policy_objects="all" if args.policy_objects == "all" else tuple(args.policy_objects.split(",")))
     res = ex.run(plan, args.instruction)
     if vw:
         vw.finish(env, res)

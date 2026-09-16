@@ -42,7 +42,9 @@ def run_seed(kw):
         from scripts.video import VideoWriter
         vw = VideoWriter(os.path.join(kw["videos"], f"seed_{seed:02d}.mp4"), instruction, seed,
                          every=kw.get("video_every", 2), hw=(kw.get("video_height", 480), kw.get("video_height", 480) * 4 // 3))
-    ex = Executor(env, policy=policy, frame_cb=vw.on_step if vw else None, verbose=False)
+    po = kw.get("policy_objects", "plate,mug")
+    ex = Executor(env, policy=policy, frame_cb=vw.on_step if vw else None, verbose=False,
+                  policy_objects="all" if po == "all" else tuple(po.split(",")))
     plan = RuleParser().parse(instruction)
     t0 = time.time()
     res = ex.run(plan, instruction)
@@ -70,6 +72,8 @@ def main():
     ap.add_argument("--instruction", default=DEFAULT_INSTRUCTION)
     ap.add_argument("--policy", default=None)
     ap.add_argument("--device", default="CPU")
+    ap.add_argument("--policy-objects", default="plate,mug",
+                    help="objects whose pick uses the learned policy (comma list or 'all')")
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) // 2))
     ap.add_argument("--videos", default=None, help="directory for per-seed videos")
     ap.add_argument("--video-every", type=int, default=2)
@@ -79,12 +83,14 @@ def main():
     a = ap.parse_args()
     seeds = parse_seeds(a.seeds)
     jobs = [dict(seed=s, instruction=a.instruction, policy=a.policy, device=a.device, videos=a.videos,
+                 policy_objects=a.policy_objects,
                  video_every=a.video_every, video_height=a.video_height, no_shadows=a.no_shadows) for s in seeds]
     with ProcessPoolExecutor(a.workers) as pool:
         results = list(pool.map(run_seed, jobs))
     goals = sorted({g for r in results for g in r["subgoals"]})
     summary = dict(
         instruction=a.instruction, policy=a.policy or "scripted-expert", device=a.device, n=len(results),
+        policy_objects=a.policy_objects if a.policy else None,
         success_rate=sum(r["success"] for r in results) / len(results),
         subgoal_rates={g: sum(r["subgoals"].get(g, False) for r in results) / len(results) for g in goals},
         mean_retries=sum(r["retries"] for r in results) / len(results),
@@ -101,7 +107,8 @@ def main():
     with open(a.out, "w") as f:
         json.dump(dict(summary=summary, episodes=results), f, indent=1)
     # markdown table
-    md = [f"# Evaluation: {summary['policy']}  ({summary['n']} seeds)", "",
+    md = [f"# Evaluation: {summary['policy']}  ({summary['n']} seeds)"
+          + (f"  - learned picks: {a.policy_objects}" if a.policy else ""), "",
           f"**Task success: {summary['success_rate'] * 100:.0f}%**  |  mean retries {summary['mean_retries']:.1f}"
           f"  |  mean episode {summary['mean_sim_time_s']:.0f} s (sim)"
           + (f"  |  learned-policy steps solved without fallback: {summary['policy_first_try_success'] * 100:.0f}%"

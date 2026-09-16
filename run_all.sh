@@ -17,6 +17,6 @@ python -m deploy.benchmark --models models/act_pick_fp32.xml models/act_pick_fp1
 # 5) 10-seed evaluation: scripted expert and learned policy (+ videos)
 python scripts/evaluate.py --seeds "$SEEDS_EVAL" --out results/eval_expert.json --videos videos
 python scripts/evaluate.py --seeds "$SEEDS_EVAL" --policy models/act_pick_int8.xml --device "$DEV" \
-    --out results/eval_policy_int8.json
+    --policy-objects plate,mug --out results/eval_policy_int8.json
 # 6) stitched submission video
 python scripts/make_submission_video.py --videos videos --eval results/eval_expert.json --out videos/submission.mp4

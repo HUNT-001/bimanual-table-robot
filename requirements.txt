@@ -8,3 +8,4 @@ pillow>=10.0
 # optional: LLM planner back-end on Intel (see planner/language.py)
 # openvino-genai>=2024.4
 # optimum[openvino]>=1.22
+matplotlib>=3.7

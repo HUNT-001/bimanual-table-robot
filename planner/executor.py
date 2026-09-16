@@ -55,15 +55,19 @@ def postcondition(env: DinnerTableEnv, step: dict) -> bool:
 
 class Executor:
     def __init__(self, env: DinnerTableEnv, policy=None, policy_skills=("pick",), max_retries=2,
-                 frame_cb=None, verbose=True):
+                 frame_cb=None, verbose=True, policy_objects=("plate", "mug")):
         self.env = env
         self.skills = SkillLibrary(env)
         self.policy = policy            # object with .act(env, text) generator, or None
         self.policy_skills = set(policy_skills)
+        # objects the learned policy handles; picks near the drawer (cutlery) and the tall bottle stay scripted
+        self.policy_objects = None if policy_objects in (None, "all") else set(policy_objects)
         self.max_retries = max_retries
         self.frame_cb = frame_cb        # called as frame_cb(env, step_text) after each control step
         self.verbose = verbose
         self.record = None              # optional list for demo recording
+        self.repair = True              # re-plan when a previously achieved goal is undone
+        self.max_repairs = 6
 
     def _gen(self, step):
         S, s = self.skills, step["skill"]
@@ -134,10 +138,15 @@ class Executor:
                 st["for_handoff"] = True
         res = EpisodeResult(seed=env.seed if seed is None else seed, instruction=instruction)
         t0 = time.time()
-        for step in plan:
+        queue = [dict(st) for st in plan]
+        done_goals = {}          # goal key -> repair steps, for goals that were achieved earlier
+        repairs = 0
+        while queue:
+            step = queue.pop(0)
             text = plan_to_text(step)
             ok, attempts, n = False, 0, 0
-            use_policy = self.policy is not None and step["skill"] in self.policy_skills
+            use_policy = (self.policy is not None and step["skill"] in self.policy_skills and not step.get("repair")
+                          and (self.policy_objects is None or step.get("obj") in self.policy_objects))
             while not ok and attempts <= self.max_retries:
                 attempts += 1
                 if use_policy and attempts == 1:
@@ -155,9 +164,37 @@ class Executor:
                 ok = postcondition(env, step)
             if step["skill"] in ("place", "handoff", "open_drawer"):
                 self._home_free_arms(text)
-            res.steps.append(StepResult(text, ok, attempts, n, "policy" if use_policy else "expert"))
+            res.steps.append(StepResult(text + (" [repair]" if step.get("repair") else ""), ok, attempts, n,
+                                        "policy" if use_policy else "expert"))
             if self.verbose:
-                print(f"  [{'OK' if ok else 'FAIL'}] {text} (attempts={attempts})")
+                print(f"  [{'OK' if ok else 'FAIL'}] {text}{' [repair]' if step.get('repair') else ''} "
+                      f"(attempts={attempts})")
+            # remember achieved goals and how to restore them
+            if ok and step["skill"] == "open_drawer":
+                done_goals["drawer_open"] = [dict(skill="open_drawer", arm=step["arm"], obj="drawer")]
+            if ok and step["skill"] == "place" and step.get("obj") in ("plate", "fork", "spoon", "mug", "bottle"):
+                o = step["obj"]
+                done_goals[f"{o}_placed"] = [dict(skill="pick", arm=step["arm"], obj=o),
+                                             dict(skill="place", arm=step["arm"], obj=o, to=step.get("to") or o)]
+            if not ok and step["skill"] == "place" and not step.get("repair") and repairs < self.max_repairs:
+                repairs += 1
+                o = step["obj"]
+                queue[0:0] = [dict(skill="pick", arm=step["arm"], obj=o, repair=True, to=None, other=None),
+                              dict(skill="place", arm=step["arm"], obj=o, to=step.get("to") or o, repair=True,
+                                   other=None)]
+                if self.verbose:
+                    print(f"  [replan] placing {o} failed -> re-grasp and place again")
+            # re-plan: if an earlier goal was undone (drawer bumped shut, object knocked away), insert repairs
+            if self.repair and repairs < self.max_repairs and not any(env.held.values()):
+                cur = task_subgoals(env, [dict(skill="open_drawer") if k == "drawer_open" else
+                                          dict(skill="place", obj=k[:-7]) for k in done_goals])
+                for k, fix in list(done_goals.items()):
+                    if not cur.get(k, True) and repairs < self.max_repairs:
+                        repairs += 1
+                        del done_goals[k]
+                        queue[0:0] = [dict(f, repair=True, other=None, to=f.get("to")) for f in fix]
+                        if self.verbose:
+                            print(f"  [replan] '{k}' was undone -> inserting {len(fix)} repair step(s)")
         res.sim_steps = env.t
         res.wall_s = time.time() - t0
         res.subgoals = task_subgoals(env, plan)

@@ -119,7 +119,10 @@ def main():
     a = ap.parse_args()
     core = ov.Core()
     avail = core.available_devices
-    devices = [d for d in (a.devices or avail) if any(x.startswith(d.split(".")[0]) for x in avail)]
+    if a.devices:
+        devices = [d for d in avail if any(d.startswith(x) for x in a.devices)]
+    else:   # Intel devices only (OpenVINO may also enumerate a discrete NVIDIA GPU)
+        devices = [d for d in avail if "intel" in core.get_property(d, "FULL_DEVICE_NAME").lower()]
     hw = dict(cpu=cpu_name(), os=platform.platform(), openvino=ov.__version__, available_devices=avail,
               device_names={d: core.get_property(d, "FULL_DEVICE_NAME") for d in avail})
     print(json.dumps(hw, indent=1))
