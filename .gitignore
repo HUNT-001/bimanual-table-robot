@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+preview_seed3.mp4
+videos/
+data/
+results/
