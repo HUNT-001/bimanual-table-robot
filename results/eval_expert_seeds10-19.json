@@ -1,0 +1,1302 @@
+{
+ "summary": {
+  "instruction": "Open the top drawer with arm A, pick up the plate with arm A and place it on the table, take the spoon with arm B and place it on the table, pick up the fork with arm B and hand it over to arm A, then place the fork, pick up the mug with arm B, pour water into the mug with arm A, then put the bottle back and place the mug on the table.",
+  "policy": "scripted-expert",
+  "device": "CPU",
+  "n": 10,
+  "success_rate": 0.7,
+  "subgoal_rates": {
+   "bottle_placed": 0.9,
+   "drawer_open": 0.8,
+   "fork_placed": 1.0,
+   "mug_placed": 1.0,
+   "plate_placed": 1.0,
+   "poured": 1.0,
+   "spoon_placed": 0.9
+  },
+  "mean_retries": 1.3,
+  "mean_sim_time_s": 91.71
+ },
+ "episodes": [
+  {
+   "seed": 10,
+   "success": true,
+   "subgoals": {
+    "drawer_open": true,
+    "plate_placed": true,
+    "spoon_placed": true,
+    "fork_placed": true,
+    "poured": true,
+    "bottle_placed": true,
+    "mug_placed": true
+   },
+   "steps": [
+    {
+     "text": "arm A open the drawer",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the plate",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the plate on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the spoon",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the spoon on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the fork",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B hand the fork to arm A",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the fork on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the mug",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the bottle",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pour from the bottle into the mug held by arm B",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the bottle on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the mug on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    }
+   ],
+   "sim_time_s": 81.15,
+   "wall_s": 48.0,
+   "retries": 0,
+   "policy_latency_ms": [],
+   "randomization": {
+    "light": 0.88,
+    "table_mu": 0.95,
+    "mug_shape": "box",
+    "mug_g": 60,
+    "bottle_g": 48,
+    "plate_g": 73,
+    "size_scale": 1.12,
+    "layout": {
+     "plate": [
+      0.17,
+      0.201
+     ],
+     "bottle": [
+      0.238,
+      0.247
+     ],
+     "mug": [
+      0.197,
+      -0.219
+     ],
+     "fork": [
+      0.297,
+      0.01
+     ],
+     "spoon": [
+      0.316,
+      -0.001
+     ]
+    }
+   }
+  },
+  {
+   "seed": 11,
+   "success": true,
+   "subgoals": {
+    "drawer_open": true,
+    "plate_placed": true,
+    "spoon_placed": true,
+    "fork_placed": true,
+    "poured": true,
+    "bottle_placed": true,
+    "mug_placed": true
+   },
+   "steps": [
+    {
+     "text": "arm A open the drawer",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the plate",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the plate on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the spoon",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the spoon on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the fork",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B hand the fork to arm A",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the fork on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the mug",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the bottle",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pour from the bottle into the mug held by arm B",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the bottle on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the mug on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    }
+   ],
+   "sim_time_s": 79.75,
+   "wall_s": 48.5,
+   "retries": 0,
+   "policy_latency_ms": [],
+   "randomization": {
+    "light": 0.71,
+    "table_mu": 1.0,
+    "mug_shape": "box",
+    "mug_g": 108,
+    "bottle_g": 80,
+    "plate_g": 148,
+    "size_scale": 1.01,
+    "layout": {
+     "plate": [
+      0.151,
+      0.167
+     ],
+     "bottle": [
+      0.234,
+      0.274
+     ],
+     "mug": [
+      0.186,
+      -0.165
+     ],
+     "fork": [
+      0.294,
+      -0.014
+     ],
+     "spoon": [
+      0.318,
+      0.012
+     ]
+    }
+   }
+  },
+  {
+   "seed": 12,
+   "success": true,
+   "subgoals": {
+    "drawer_open": true,
+    "plate_placed": true,
+    "spoon_placed": true,
+    "fork_placed": true,
+    "poured": true,
+    "bottle_placed": true,
+    "mug_placed": true
+   },
+   "steps": [
+    {
+     "text": "arm A open the drawer",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the plate",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the plate on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the spoon",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the spoon on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the fork",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B hand the fork to arm A",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the fork on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the mug",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the bottle",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pour from the bottle into the mug held by arm B",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the bottle on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the mug on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    }
+   ],
+   "sim_time_s": 80.75,
+   "wall_s": 47.6,
+   "retries": 0,
+   "policy_latency_ms": [],
+   "randomization": {
+    "light": 0.83,
+    "table_mu": 0.66,
+    "mug_shape": "box",
+    "mug_g": 67,
+    "bottle_g": 41,
+    "plate_g": 117,
+    "size_scale": 0.91,
+    "layout": {
+     "plate": [
+      0.15,
+      0.181
+     ],
+     "bottle": [
+      0.224,
+      0.263
+     ],
+     "mug": [
+      0.206,
+      -0.209
+     ],
+     "fork": [
+      0.297,
+      -0.002
+     ],
+     "spoon": [
+      0.32,
+      0.012
+     ]
+    }
+   }
+  },
+  {
+   "seed": 13,
+   "success": true,
+   "subgoals": {
+    "drawer_open": true,
+    "plate_placed": true,
+    "spoon_placed": true,
+    "fork_placed": true,
+    "poured": true,
+    "bottle_placed": true,
+    "mug_placed": true
+   },
+   "steps": [
+    {
+     "text": "arm A open the drawer",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the plate",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the plate on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the spoon",
+     "ok": true,
+     "attempts": 2,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the spoon on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the fork",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B hand the fork to arm A",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the fork on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the mug",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the bottle",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pour from the bottle into the mug held by arm B",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the bottle on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the mug on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    }
+   ],
+   "sim_time_s": 85.45,
+   "wall_s": 51.6,
+   "retries": 1,
+   "policy_latency_ms": [],
+   "randomization": {
+    "light": 0.89,
+    "table_mu": 0.65,
+    "mug_shape": "cylinder",
+    "mug_g": 117,
+    "bottle_g": 84,
+    "plate_g": 75,
+    "size_scale": 1.0,
+    "layout": {
+     "plate": [
+      0.158,
+      0.201
+     ],
+     "bottle": [
+      0.222,
+      0.266
+     ],
+     "mug": [
+      0.166,
+      -0.165
+     ],
+     "fork": [
+      0.299,
+      0.005
+     ],
+     "spoon": [
+      0.318,
+      -0.011
+     ]
+    }
+   }
+  },
+  {
+   "seed": 14,
+   "success": true,
+   "subgoals": {
+    "drawer_open": true,
+    "plate_placed": true,
+    "spoon_placed": true,
+    "fork_placed": true,
+    "poured": true,
+    "bottle_placed": true,
+    "mug_placed": true
+   },
+   "steps": [
+    {
+     "text": "arm A open the drawer",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the plate",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the plate on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the spoon",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the spoon on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the fork",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B hand the fork to arm A",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the fork on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the mug",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the bottle",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pour from the bottle into the mug held by arm B",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the bottle on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the mug on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    }
+   ],
+   "sim_time_s": 80.05,
+   "wall_s": 48.1,
+   "retries": 0,
+   "policy_latency_ms": [],
+   "randomization": {
+    "light": 0.69,
+    "table_mu": 0.99,
+    "mug_shape": "box",
+    "mug_g": 44,
+    "bottle_g": 85,
+    "plate_g": 96,
+    "size_scale": 0.94,
+    "layout": {
+     "plate": [
+      0.169,
+      0.18
+     ],
+     "bottle": [
+      0.225,
+      0.251
+     ],
+     "mug": [
+      0.193,
+      -0.152
+     ],
+     "fork": [
+      0.297,
+      -0.009
+     ],
+     "spoon": [
+      0.32,
+      0.005
+     ]
+    }
+   }
+  },
+  {
+   "seed": 15,
+   "success": true,
+   "subgoals": {
+    "drawer_open": true,
+    "plate_placed": true,
+    "spoon_placed": true,
+    "fork_placed": true,
+    "poured": true,
+    "bottle_placed": true,
+    "mug_placed": true
+   },
+   "steps": [
+    {
+     "text": "arm A open the drawer",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the plate",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the plate on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the spoon",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the spoon on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the fork",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B hand the fork to arm A",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the fork on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the mug",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the bottle",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pour from the bottle into the mug held by arm B",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the bottle on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the mug on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    }
+   ],
+   "sim_time_s": 80.55,
+   "wall_s": 49.1,
+   "retries": 0,
+   "policy_latency_ms": [],
+   "randomization": {
+    "light": 0.89,
+    "table_mu": 0.93,
+    "mug_shape": "box",
+    "mug_g": 52,
+    "bottle_g": 56,
+    "plate_g": 83,
+    "size_scale": 1.13,
+    "layout": {
+     "plate": [
+      0.178,
+      0.161
+     ],
+     "bottle": [
+      0.237,
+      0.259
+     ],
+     "mug": [
+      0.172,
+      -0.187
+     ],
+     "fork": [
+      0.295,
+      -0.001
+     ],
+     "spoon": [
+      0.316,
+      0.004
+     ]
+    }
+   }
+  },
+  {
+   "seed": 16,
+   "success": true,
+   "subgoals": {
+    "drawer_open": true,
+    "plate_placed": true,
+    "spoon_placed": true,
+    "fork_placed": true,
+    "poured": true,
+    "bottle_placed": true,
+    "mug_placed": true
+   },
+   "steps": [
+    {
+     "text": "arm A open the drawer",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the plate",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the plate on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the spoon",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the spoon on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the fork",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B hand the fork to arm A",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the fork on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the mug",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the bottle",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pour from the bottle into the mug held by arm B",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the bottle on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the mug on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    }
+   ],
+   "sim_time_s": 80.75,
+   "wall_s": 49.4,
+   "retries": 0,
+   "policy_latency_ms": [],
+   "randomization": {
+    "light": 0.8,
+    "table_mu": 0.69,
+    "mug_shape": "box",
+    "mug_g": 91,
+    "bottle_g": 92,
+    "plate_g": 146,
+    "size_scale": 0.93,
+    "layout": {
+     "plate": [
+      0.168,
+      0.208
+     ],
+     "bottle": [
+      0.24,
+      0.273
+     ],
+     "mug": [
+      0.168,
+      -0.198
+     ],
+     "fork": [
+      0.297,
+      -0.004
+     ],
+     "spoon": [
+      0.319,
+      0.004
+     ]
+    }
+   }
+  },
+  {
+   "seed": 17,
+   "success": false,
+   "subgoals": {
+    "drawer_open": false,
+    "plate_placed": true,
+    "spoon_placed": true,
+    "fork_placed": true,
+    "poured": true,
+    "bottle_placed": true,
+    "mug_placed": true
+   },
+   "steps": [
+    {
+     "text": "arm A open the drawer",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the plate",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the plate on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the spoon",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the spoon on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the fork",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B hand the fork to arm A",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the fork on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the mug",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the bottle",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pour from the bottle into the mug held by arm B",
+     "ok": true,
+     "attempts": 2,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the bottle on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the mug on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    }
+   ],
+   "sim_time_s": 94.9,
+   "wall_s": 59.1,
+   "retries": 1,
+   "policy_latency_ms": [],
+   "randomization": {
+    "light": 0.41,
+    "table_mu": 0.65,
+    "mug_shape": "cylinder",
+    "mug_g": 62,
+    "bottle_g": 71,
+    "plate_g": 66,
+    "size_scale": 0.9,
+    "layout": {
+     "plate": [
+      0.18,
+      0.202
+     ],
+     "bottle": [
+      0.211,
+      0.268
+     ],
+     "mug": [
+      0.19,
+      -0.229
+     ],
+     "fork": [
+      0.296,
+      0.005
+     ],
+     "spoon": [
+      0.32,
+      -0.014
+     ]
+    }
+   }
+  },
+  {
+   "seed": 18,
+   "success": false,
+   "subgoals": {
+    "drawer_open": true,
+    "plate_placed": true,
+    "spoon_placed": false,
+    "fork_placed": true,
+    "poured": true,
+    "bottle_placed": true,
+    "mug_placed": true
+   },
+   "steps": [
+    {
+     "text": "arm A open the drawer",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the plate",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the plate on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the spoon",
+     "ok": false,
+     "attempts": 3,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the spoon on its spot",
+     "ok": false,
+     "attempts": 3,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the fork",
+     "ok": true,
+     "attempts": 2,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B hand the fork to arm A",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the fork on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the mug",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the bottle",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pour from the bottle into the mug held by arm B",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the bottle on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the mug on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    }
+   ],
+   "sim_time_s": 119.3,
+   "wall_s": 90.8,
+   "retries": 5,
+   "policy_latency_ms": [],
+   "randomization": {
+    "light": 0.46,
+    "table_mu": 1.14,
+    "mug_shape": "box",
+    "mug_g": 85,
+    "bottle_g": 91,
+    "plate_g": 63,
+    "size_scale": 1.04,
+    "layout": {
+     "plate": [
+      0.176,
+      0.207
+     ],
+     "bottle": [
+      0.211,
+      0.277
+     ],
+     "mug": [
+      0.194,
+      -0.18
+     ],
+     "fork": [
+      0.297,
+      -0.011
+     ],
+     "spoon": [
+      0.317,
+      0.006
+     ]
+    }
+   }
+  },
+  {
+   "seed": 19,
+   "success": false,
+   "subgoals": {
+    "drawer_open": false,
+    "plate_placed": true,
+    "spoon_placed": true,
+    "fork_placed": true,
+    "poured": true,
+    "bottle_placed": false,
+    "mug_placed": true
+   },
+   "steps": [
+    {
+     "text": "arm A open the drawer",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the plate",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the plate on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the spoon",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the spoon on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the fork",
+     "ok": true,
+     "attempts": 3,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B hand the fork to arm A",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the fork on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B pick up the mug",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pick up the bottle",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A pour from the bottle into the mug held by arm B",
+     "ok": true,
+     "attempts": 3,
+     "executor": "expert"
+    },
+    {
+     "text": "arm A place the bottle on its spot",
+     "ok": false,
+     "attempts": 3,
+     "executor": "expert"
+    },
+    {
+     "text": "arm B place the mug on its spot",
+     "ok": true,
+     "attempts": 1,
+     "executor": "expert"
+    }
+   ],
+   "sim_time_s": 134.45,
+   "wall_s": 80.6,
+   "retries": 6,
+   "policy_latency_ms": [],
+   "randomization": {
+    "light": 0.86,
+    "table_mu": 0.85,
+    "mug_shape": "box",
+    "mug_g": 63,
+    "bottle_g": 67,
+    "plate_g": 55,
+    "size_scale": 1.13,
+    "layout": {
+     "plate": [
+      0.165,
+      0.196
+     ],
+     "bottle": [
+      0.229,
+      0.262
+     ],
+     "mug": [
+      0.182,
+      -0.178
+     ],
+     "fork": [
+      0.296,
+      -0.011
+     ],
+     "spoon": [
+      0.318,
+      0.0
+     ]
+    }
+   }
+  }
+ ]
+}
