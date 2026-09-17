@@ -16,6 +16,19 @@
 
 ---
 
+### Highlights
+
+- **The other arm really holds the mug while one arm pours** — the brief's own example. Arm B grips the mug by
+  its handle and turns it out of the pourer's path; arm A tilts the bottle over it.
+- **The learned policy completes whole tables.** With learned plate and mug picks (OpenVINO INT8 on the Intel iGPU),
+  5 of 10 randomized seeds finish all 7 sub-goals.
+- **The plan repairs itself.** The executor remembers goals it has achieved and re-plans when a later action undoes
+  one (e.g. the drawer is bumped shut).
+- **Fast on Intel.** INT8 policy inference in 1.35 ms on the CPU (5.2× PyTorch); the whole
+  simulate → perceive → act loop runs faster than real time.
+- **Honest scope.** Grasping uses a weld assist and pouring is judged geometrically — see
+  [Limitations](#limitations-stated-openly).
+
 ## What it does
 
 You give one sentence:
@@ -102,7 +115,7 @@ friction, object size (±15 %), mug shape (cylinder / box), light intensity and 
 
 ```mermaid
 flowchart LR
-    NL["Natural-language command"] --> P["Planner<br/>rule grammar or OpenVINO-GenAI LLM<br/><i>holding context · pronouns · arm refs</i>"]
+    NL["Natural-language command"] --> P["Planner<br/>rule-based grammar<br/><i>holding context · pronouns · arm refs</i>"]
     P -->|"plan: open_drawer · pick · place ·<br/>handoff · pour"| X["Closed-loop executor<br/><i>execute → observe → verify → retry / repair</i>"]
     X --> L["Learned skill<br/><b>ACT-Lite</b><br/>2 cams + state + text → 20-step chunk<br/><i>OpenVINO IR on CPU / iGPU / NPU</i>"]
     X --> S["Scripted bimanual skills<br/>IK · hand-over · two-arm pour ·<br/>object-space carrying"]
@@ -158,7 +171,7 @@ flowchart LR
 |---|---|
 | MuJoCo physics + rendering | CPU P-cores (+ iGPU for OpenGL rendering) |
 | ACT-Lite policy (20 Hz, re-plan every 5 steps) | iGPU (FP16 / INT8) or NPU (INT8); CPU fallback |
-| Optional LLM planner (openvino-genai, INT4) | iGPU / NPU, runs once per command |
+| Planner (rule-based) | CPU, < 1 ms per command |
 
 ## Repository
 
@@ -166,7 +179,7 @@ flowchart LR
 |---|---|
 | `sim/scene.py` | Procedural MjSpec scene and seeded domain randomization |
 | `sim/env.py` | Environment: 20 Hz control, cameras, IK and tool-point IK, task checks |
-| `planner/language.py` | Instruction → plan (rule grammar; optional OpenVINO-GenAI LLM with the same JSON schema) |
+| `planner/language.py` | Instruction → plan (rule grammar; an OpenVINO-GenAI LLM back-end stub with the same JSON schema is included but **not evaluated**) |
 | `planner/skills.py` | Bimanual skills: pick, place, open_drawer, handoff, pour, carry |
 | `planner/executor.py` | Closed-loop executor: checks, retries, goal repair, learned/scripted switching |
 | `policy/` | ACT-Lite model, demo collection, training, runtime (PyTorch or OpenVINO) |
@@ -214,9 +227,13 @@ python scripts/make_readme_media.py --out docs/images
   its spout above the mug rim for at least 0.8 s.
 - **Learned vs scripted.** The learned policy covers the *pick* skill only. Place, hand-over, pour and drawer opening
   are scripted, and the two are reported separately above.
+- **Language.** The planner is a rule-based grammar (tested on the default instruction and paraphrases in
+  `planner/language.py`). An OpenVINO-GenAI LLM back-end with the same plan schema is stubbed in but was not
+  evaluated for this submission.
 - **Hardware.** Benchmarks ran on an i9-13900HX laptop, not a Core Ultra system, so there are no NPU numbers.
-- **Next steps.** Train place and hand-over skills too, add a collision-aware loss or demos near the drawer, and
-  fine-tune SmolVLA / Pi0.5 on the same LeRobot-style data.
+- **Next steps.** Replace the grasp assist with friction-only grasps, evaluate an INT4 LLM planner on OpenVINO GenAI,
+  train place and hand-over skills, add a collision-aware loss or more demos near the drawer, evaluate on 30+ unseen
+  seeds, and fine-tune SmolVLA / Pi0.5 on the same LeRobot-style data.
 
 ## Credits
 SO-101 model: [TheRobotStudio/SO-ARM100](https://github.com/TheRobotStudio/SO-ARM100) (Apache-2.0) ·
