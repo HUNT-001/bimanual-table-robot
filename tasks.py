@@ -86,6 +86,11 @@ def main():
             for objs, tag in (("plate,mug", "plate-mug"), ("all", "all")):
                 evaluate("0-9", f"{B}/eval_policy_int8_{tag}_seeds0-9.json", w, IRS[2], "GPU", objs,
                          log=f"{B}/logs/eval_policy_int8_{tag}_seeds0-9.log")
+            # learned-policy runs are not repeatable run to run; repeat them to size the spread
+            for objs, tag in (("plate,mug", "plate-mug"), ("all", "all")):
+                for rep, dev in (("gpu_r2", "GPU"), ("gpu_r3", "GPU"), ("cpu_r1", "CPU"), ("cpu_r2", "CPU")):
+                    evaluate("0-9", f"{B}/repeats/eval_policy_int8_{tag}_seeds0-9_{rep}.json", w, IRS[2], dev, objs,
+                             log=f"{B}/repeats/logs/{tag}_{rep}.log")
         bench(B)          # run with nothing else active on the machine
         run(PY, "scripts/env_info.py", "--out", f"{B}/environment.json")
         run(PY, "scripts/report.py", "--dir", B)

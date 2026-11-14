@@ -95,6 +95,33 @@ def parity_tables(path):
     return out + [""]
 
 
+def repeat_tables(main_files, rep_files):
+    """Run-to-run variation: identical commands repeated on identical seeds, grouped by configuration."""
+    if not rep_files:
+        return []
+    groups = {}
+    for f in main_files + rep_files:
+        d = json.load(open(f))
+        s = d["summary"]
+        if s["policy"] == "scripted-expert":
+            continue
+        key = (os.path.basename(s["policy"]), s["device"], s.get("policy_objects"), _seed_range(d["episodes"]))
+        groups.setdefault(key, []).append([bool(e["success"]) for e in d["episodes"]])
+    out = ["## Run-to-run variation of learned-policy evaluations", "",
+           "Same command, same seeds, repeated. Scripted-expert runs repeat exactly; these do not.", "",
+           "| Policy | Device | Learned picks | Seeds | Runs | Successes per run | Pooled | Seeds with mixed outcomes |",
+           "|---|---|---|---|---|---|---|---|"]
+    for (pol, dev, objs, seeds), runs in sorted(groups.items()):
+        n = len(runs[0])
+        per = ", ".join(f"{sum(r)}/{n}" for r in runs)
+        mixed = sum(1 for i in range(n) if len({r[i] for r in runs}) > 1)
+        out.append(f"| {pol} | {dev} | {objs} | {seeds} | {len(runs)} | {per} | "
+                   f"{_rate(sum(map(sum, runs)), n * len(runs))} | {mixed}/{n} |")
+    out += ["", "The pooled interval treats episodes as independent, which repeated seeds are not; read it as a "
+                "summary of spread, not as a 95 % interval on a population rate.", ""]
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", default="results")
@@ -108,14 +135,15 @@ def main():
         v = e["versions"]
         lines += [f"Commit `{e['git_commit'][:7]}` · Python {e['python']} · torch {v['torch']} · MuJoCo {v['mujoco']} · "
                   f"OpenVINO {v['openvino']} · NNCF {v['nncf']} · {e['platform']}", ""]
-    lines += eval_tables(sorted(glob.glob(os.path.join(a.dir, "eval_*.json"))))
+    evals = sorted(glob.glob(os.path.join(a.dir, "eval_*.json")))
+    lines += eval_tables(evals)
+    lines += repeat_tables(evals, sorted(glob.glob(os.path.join(a.dir, "repeats", "eval_*.json"))))
     lines += bench_tables(os.path.join(a.dir, "benchmark.json"))
     lines += parity_tables(os.path.join(a.dir, "ir_parity.json"))
     out = os.path.join(a.dir, "REPORT.md")
     with open(out, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
-    print("\n".join(lines))
-    print(f"wrote {out}")
+    print(f"wrote {out} ({len(lines)} lines)")
 
 
 if __name__ == "__main__":
