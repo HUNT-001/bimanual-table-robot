@@ -46,7 +46,12 @@ class OpenVINOBackend(_Backend):
         cfg = {"PERFORMANCE_HINT": hint}
         if device.startswith("GPU") or device.startswith("NPU"):
             cfg["CACHE_DIR"] = os.path.join(os.path.dirname(os.path.abspath(xml)), "ov_cache")
-        self.compiled = core.compile_model(xml, device, cfg)
+        try:
+            self.compiled = core.compile_model(xml, device, cfg)
+        except RuntimeError:
+            # parallel workers can race on a stale blob in the shared cache directory; compile without it
+            cfg.pop("CACHE_DIR", None)
+            self.compiled = core.compile_model(xml, device, cfg)
         self.req = self.compiled.create_infer_request()
         with open(os.path.splitext(xml)[0] + "_stats.json") as f:
             meta = json.load(f)
