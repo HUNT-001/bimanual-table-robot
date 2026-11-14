@@ -81,6 +81,7 @@ def main():
     ap.add_argument("--no-shadows", action="store_true")
     ap.add_argument("--out", default="results/eval.json")
     a = ap.parse_args()
+    from scripts.stats import wilson
     seeds = parse_seeds(a.seeds)
     jobs = [dict(seed=s, instruction=a.instruction, policy=a.policy, device=a.device, videos=a.videos,
                  policy_objects=a.policy_objects,
@@ -92,6 +93,7 @@ def main():
         instruction=a.instruction, policy=a.policy or "scripted-expert", device=a.device, n=len(results),
         policy_objects=a.policy_objects if a.policy else None,
         success_rate=sum(r["success"] for r in results) / len(results),
+        success_ci95=list(wilson(sum(r["success"] for r in results), len(results))),
         subgoal_rates={g: sum(r["subgoals"].get(g, False) for r in results) / len(results) for g in goals},
         mean_retries=sum(r["retries"] for r in results) / len(results),
         mean_sim_time_s=sum(r["sim_time_s"] for r in results) / len(results),
@@ -109,7 +111,8 @@ def main():
     # markdown table
     md = [f"# Evaluation: {summary['policy']}  ({summary['n']} seeds)"
           + (f"  - learned picks: {a.policy_objects}" if a.policy else ""), "",
-          f"**Task success: {summary['success_rate'] * 100:.0f}%**  |  mean retries {summary['mean_retries']:.1f}"
+          f"**Task success: {summary['success_rate'] * 100:.0f}%** (95% CI {summary['success_ci95'][0] * 100:.0f}-"
+          f"{summary['success_ci95'][1] * 100:.0f}%)  |  mean retries {summary['mean_retries']:.1f}"
           f"  |  mean episode {summary['mean_sim_time_s']:.0f} s (sim)"
           + (f"  |  learned-policy steps solved without fallback: {summary['policy_first_try_success'] * 100:.0f}%"
              f" ({summary['policy_steps']} steps, {summary['policy_latency_ms_mean']:.1f} ms/inference)"
