@@ -1,0 +1,122 @@
+"""Summarise every result JSON in a directory as Markdown tables with confidence intervals.
+
+    python scripts/report.py --dir results/baseline            # writes results/baseline/REPORT.md
+"""
+import argparse
+import glob
+import json
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from scripts.stats import wilson  # noqa: E402
+
+
+def _seed_range(eps):
+    s = sorted(e["seed"] for e in eps)
+    return f"{s[0]}–{s[-1]}" if s == list(range(s[0], s[-1] + 1)) else ",".join(map(str, s))
+
+
+def _rate(k, n):
+    lo, hi = wilson(k, n)
+    return f"{k}/{n} ({100 * k / n:.0f} %) [{100 * lo:.0f}–{100 * hi:.0f}]"
+
+
+def eval_tables(files):
+    if not files:
+        return []
+    goals = ["drawer_open", "plate_placed", "spoon_placed", "fork_placed", "mug_placed", "poured", "bottle_placed"]
+    out = ["## Task evaluations", "",
+           "Success as k/n (rate) [Wilson 95 % interval, in %]. Sub-goal columns are k/n.", "",
+           "| File | Executor | Seeds | Full task | " + " | ".join(g.replace("_", " ") for g in goals) +
+           " | Mean retries | Failed seeds |",
+           "|---|---|---|---|" + "---|" * len(goals) + "---|---|"]
+    for f in files:
+        d = json.load(open(f))
+        s, eps = d["summary"], d["episodes"]
+        n, k = len(eps), sum(e["success"] for e in eps)
+        who = "scripted" if s["policy"] == "scripted-expert" else \
+            f"{os.path.basename(s['policy'])} on {s['device']}, learned picks: {s.get('policy_objects')}"
+        sub = [f"{sum(e['subgoals'].get(g, False) for e in eps)}/{n}" for g in goals]
+        failed = ", ".join(str(e["seed"]) for e in eps if not e["success"]) or "–"
+        out.append(f"| `{os.path.basename(f)}` | {who} | {_seed_range(eps)} | {_rate(k, n)} | " + " | ".join(sub) +
+                   f" | {s['mean_retries']:.1f} | {failed} |")
+    pol = [(f, json.load(open(f))["summary"]) for f in files]
+    pol = [(f, s) for f, s in pol if "policy_steps" in s]
+    if pol:
+        out += ["", "Learned-policy steps (a step counts only if it succeeded on the first attempt, with no scripted "
+                    "fallback):", "", "| File | Policy steps | First-try success | Mean inference |", "|---|---|---|---|"]
+        for f, s in pol:
+            k = round(s["policy_first_try_success"] * s["policy_steps"])
+            out.append(f"| `{os.path.basename(f)}` | {s['policy_steps']} | {_rate(k, s['policy_steps'])} | "
+                       f"{s['policy_latency_ms_mean']:.1f} ms |")
+    return out + [""]
+
+
+def bench_tables(path):
+    if not os.path.exists(path):
+        return []
+    d = json.load(open(path))
+    out = ["## Inference benchmark", "",
+           f"`{os.path.basename(path)}` · OpenVINO {d['hardware']['openvino']} · {d['hardware']['device_names'].get('CPU', '')}",
+           "", "| Runtime | Device | Precision | Mean ms | p50 | p90 | p99 | Sync FPS | Throughput FPS | vs PyTorch |",
+           "|---|---|---|---|---|---|---|---|---|---|"]
+    for r in d["results"]:
+        if "error" in r:
+            out.append(f"| {r['runtime']} | {r['device']} | {r['precision']} | error: {r['error'][:60]} |||||||")
+            continue
+        tp = f"{r['fps_throughput']:.0f}" if "fps_throughput" in r else "–"
+        out.append(f"| {r['runtime']} | {r['device']} | {r['precision']} | {r['mean_ms']:.2f} | {r['p50_ms']:.2f} | "
+                   f"{r['p90_ms']:.2f} | {r['p99_ms']:.2f} | {r['fps_sync']:.0f} | {tp} | "
+                   f"{r.get('speedup_vs_pytorch', float('nan')):.1f}× |")
+    if d.get("sim"):
+        out += ["", f"MuJoCo control step: {d['sim']['control_step_ms']:.2f} ms · two-camera render: "
+                    f"{d['sim']['render_2cam_ms']:.2f} ms"]
+    names = " ".join(d["hardware"]["device_names"])
+    out += ["", "NPU: " + ("measured above" if "NPU" in names else "not measured (no NPU on this machine)"), ""]
+    return out
+
+
+def parity_tables(path):
+    if not os.path.exists(path):
+        return []
+    d = json.load(open(path))
+    out = ["## IR output parity vs PyTorch", "",
+           f"`{os.path.basename(path)}` · {d['n_frames']} real demo frames through one infer request · unit: {d['unit']}",
+           "", "| Model | Device | First call max | Max over frames | Median of frame max | Mean abs | First frame repeated |",
+           "|---|---|---|---|---|---|---|"]
+    for r in d["results"]:
+        if "error" in r:
+            out.append(f"| {r['model']} | {r['device']} | error: {r['error'][:60]} |||||")
+            continue
+        out.append(f"| {r['model']} | {r['device']} | {r['first_call_max_dev']:.4f} | {r['max_dev']:.4f} | "
+                   f"{r['median_of_frame_max_dev']:.4f} | {r['mean_abs_dev']:.4f} | "
+                   f"{r['first_frame_repeated_max_dev']:.4f} |")
+    return out + [""]
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dir", default="results")
+    a = ap.parse_args()
+    lines = [f"# Results report: `{a.dir}`", "",
+             "Generated by `python scripts/report.py --dir " + a.dir.replace(os.sep, "/") + "` from the JSON files "
+             "in this folder. Do not edit by hand.", ""]
+    env = os.path.join(a.dir, "environment.json")
+    if os.path.exists(env):
+        e = json.load(open(env))
+        v = e["versions"]
+        lines += [f"Commit `{e['git_commit'][:7]}` · Python {e['python']} · torch {v['torch']} · MuJoCo {v['mujoco']} · "
+                  f"OpenVINO {v['openvino']} · NNCF {v['nncf']} · {e['platform']}", ""]
+    lines += eval_tables(sorted(glob.glob(os.path.join(a.dir, "eval_*.json"))))
+    lines += bench_tables(os.path.join(a.dir, "benchmark.json"))
+    lines += parity_tables(os.path.join(a.dir, "ir_parity.json"))
+    out = os.path.join(a.dir, "REPORT.md")
+    with open(out, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    print("\n".join(lines))
+    print(f"wrote {out}")
+
+
+if __name__ == "__main__":
+    main()
