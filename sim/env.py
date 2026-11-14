@@ -123,7 +123,7 @@ class DinnerTableEnv:
         self.held[arm] = best
 
     def _update_pour(self):
-        """Pour counter: bottle tilted > 70deg with spout above the mug opening."""
+        """Pour counter: bottle tilted > 55 deg with its spout within 4 cm (horizontally) above the mug opening."""
         d = self.data
         bz = d.body("bottle").xmat.reshape(3, 3)[:, 2]
         spout = d.site("bottle_spout").xpos
@@ -145,10 +145,11 @@ class DinnerTableEnv:
         return self.data.qpos[self.qadr[arm]].copy()
 
     def ik(self, arm, target_pos, approach=(0, 0, -1), q_init=None, iters=200, roll=None, restarts=6,
-           local_only=False):
+           local_only=False, pos_tol=1.5e-3):
         """Damped least-squares IK (grasp-site position + gripper approach axis), with restarts.
 
         Returns (q[5], position_error). Wrist roll is left untouched unless `roll` is given.
+        `pos_tol` is the position error (m) at which a solution is accepted.
         """
         m = self.model
         d = mujoco.MjData(m)
@@ -184,7 +185,7 @@ class DinnerTableEnv:
                 if ax @ approach < 0:  # antiparallel: push away along any perpendicular
                     eo = eo + np.cross(ax, np.array([0.0, 0.0, 1.0]) if abs(ax[2]) < 0.9 else np.array([1.0, 0, 0]))
                 pe, oe = np.linalg.norm(ep), np.linalg.norm(eo)
-                if pe < 1.5e-3 and oe < 0.02:
+                if pe < pos_tol and oe < 0.02:
                     break
                 mujoco.mj_comPos(m, d)
                 mujoco.mj_jacSite(m, d, jp, jr, sid)
@@ -196,7 +197,7 @@ class DinnerTableEnv:
             score = pe + 0.05 * oe
             if score < best[1] + 0.05 * best[2]:
                 best = (d.qpos[qa].copy(), pe, oe)
-            if pe < 2e-3 and oe < 0.03:
+            if pe < pos_tol + 0.5e-3 and oe < 0.03:
                 break
         return best[0], best[1]
 
