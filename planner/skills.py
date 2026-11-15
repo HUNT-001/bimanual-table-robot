@@ -26,6 +26,8 @@ class SkillLibrary:
         self.debug = False
         # commanded targets (what the position servos are tracking)
         self.cmd = {a: np.r_[HOME[:5], GRIP_OPEN] for a in ARMS}
+        # friction pinch: command the jaw to its limit so the (force-limited) servo squeezes thin parts too
+        self.grip_closed = -0.17 if env.grasp == "contact" else GRIP_CLOSED
 
     def reset(self):
         self.cmd = {a: np.r_[HOME[:5], GRIP_OPEN] for a in ARMS}
@@ -121,9 +123,46 @@ class SkillLibrary:
             r -= np.pi
         return float(np.clip(r, -1.5, 1.5))
 
+    def _closing_roll(self, arm, pos, direction, signed):
+        """Wrist roll that makes the jaws close along a world xy direction at `pos` (contact grasps)."""
+        env = self.env
+        q, _ = self._solve(arm, pos)
+        best = None
+        for r in np.linspace(-2.6, 2.7, 107):
+            qq = q.copy(); qq[4] = r
+            x = env.fk(arm, qq)[1][:2, 0]
+            a = float(x @ direction) / (np.linalg.norm(x) + 1e-9)
+            score = (a if signed else abs(a)) - 0.03 * abs(r - self.cmd[arm][4])
+            if best is None or score > best[0]:
+                best = (score, float(r))
+        return best[1]
+
+    def _contact_grasp(self, arm, obj, grasp_point=None, lift=LIFT):
+        """Friction pinch: put the object next to the fixed pad, align the jaws, close, check, lift."""
+        env = self.env
+        g = env.grasp_spec(obj, arm, grasp_point)
+        p = g["point"]
+        env.set_grasp_halfwidth(arm, g["half"])
+        yield from self.gripper(arm, g["open"], 4)
+        yield from self.move_pos(arm, p + [0, 0, LIFT], 30)
+        if g["dir"] is not None:
+            q = self.cmd[arm].copy(); q[4] = self._closing_roll(arm, p + [0, 0, LIFT], g["dir"], g["signed"])
+            yield from self.move(arm, q[:5], 10)
+            yield from self.move_pos(arm, p + [0, 0, LIFT], 8, transit=False)   # re-centre after the roll
+        yield from self.move_pos(arm, p, 20, transit=False)
+        yield from self.hold(3)
+        yield from self.gripper(arm, self.grip_closed, 12)
+        yield from self.hold(8)
+        if lift:
+            yield from self.move_pos(arm, p + [0, 0, lift], 20, transit=False)
+
     # ------------------------------------------------------------------ skills
     def pick(self, arm, obj, grasp_point=None):
         env = self.env
+        env.intent[arm] = obj
+        if env.grasp == "contact":
+            yield from self._contact_grasp(arm, obj, grasp_point)
+            return
         p = env.grasp_point(obj) if grasp_point is None else np.asarray(grasp_point)
         env.intent[arm] = obj
         yield from self.gripper(arm, GRIP_OPEN, 4)
@@ -135,7 +174,7 @@ class SkillLibrary:
             q = self.cmd[arm].copy(); q[4] = self._yaw_roll(arm, yaw)
             yield from self.move(arm, q[:5], 10)
         yield from self.move_pos(arm, p + [0, 0, 0.004], 20)
-        yield from self.gripper(arm, GRIP_CLOSED, 10)
+        yield from self.gripper(arm, self.grip_closed, 10)
         yield from self.hold(3)
         yield from self.move_pos(arm, p + [0, 0, LIFT], 20)
 
@@ -190,10 +229,21 @@ class SkillLibrary:
         env = self.env
         h = env.handle_pos()
         env.intent[arm] = "drawer"
+        if env.grasp == "contact":
+            yield from self._contact_grasp(arm, "drawer", lift=0)
+            start, ap, roll = env.ee_pos(arm), env.ee_axis(arm), self.cmd[arm][4]
+            amount = 0.105      # stop short of the 115 mm end stop: hitting it slides the cutlery into the wall
+            for k in range(1, 9):
+                yield from self.move_pos(arm, start + [-amount * k / 8, 0, 0], 6, approach=ap, roll=roll,
+                                         transit=False)
+            yield from self.hold(5)
+            yield from self.gripper(arm, 0.45, 8)
+            yield from self.move_pos(arm, env.ee_pos(arm) + [0, 0, LIFT], 15)
+            return
         yield from self.gripper(arm, GRIP_OPEN, 4)
         yield from self.move_pos(arm, h + [0, 0, LIFT], 30, roll=0.0)
         yield from self.move_pos(arm, h + [0, 0, 0.003], 20, roll=0.0)
-        yield from self.gripper(arm, GRIP_CLOSED, 10)
+        yield from self.gripper(arm, self.grip_closed, 10)
         start = env.handle_pos()
         ap = env.ee_axis(arm)
         for k in range(1, 9):
@@ -220,7 +270,7 @@ class SkillLibrary:
         yield from self.move(receiver, q[:5], 8)
         yield from self.move_pos(receiver, free() + [0, 0, 0.002], 20, transit=False)
         # receiver closes first (attachment transfers), then the giver opens
-        yield from self.gripper(receiver, GRIP_CLOSED, 8)
+        yield from self.gripper(receiver, self.grip_closed, 8)
         yield from self.hold(3)
         yield from self.gripper(giver, GRIP_OPEN, 6)
         yield from self.move_pos(giver, env.ee_pos(giver) + [0, 0, 0.04], 10, transit=False)

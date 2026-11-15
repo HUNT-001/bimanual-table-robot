@@ -10,7 +10,7 @@ if sys.platform.startswith("linux"):
 import mujoco
 import numpy as np
 
-from .scene import ARMS, ARM_JOINTS, OBJECTS, build_scene
+from .scene import ARMS, ARM_JOINTS, CONTACT, OBJECTS, build_scene
 
 HOME = np.array([0.0, -0.72, 0.56, 1.5, 0.0, 0.0])  # retracted, gripper pointing down
 GRIP_OPEN, GRIP_CLOSED = 1.0, -0.05
@@ -21,8 +21,9 @@ ARM_DOF = 5
 
 class DinnerTableEnv:
     def __init__(self, seed: int = 0, randomize: bool = True, img_hw=(96, 128),
-                 cameras=("overhead", "front"), render_video: bool = False):
+                 cameras=("overhead", "front"), render_video: bool = False, grasp: str = "assist"):
         self.img_hw, self.cameras = img_hw, cameras
+        self.grasp = grasp                # "assist": weld on close; "contact": friction only
         self.render_video = render_video
         self._renderer = None
         self._video_renderer = None
@@ -31,7 +32,7 @@ class DinnerTableEnv:
     # ------------------------------------------------------------------ setup
     def reset(self, seed: int = 0, randomize: bool = True):
         self.seed = seed
-        self.model, self.info = build_scene(seed, randomize)
+        self.model, self.info = build_scene(seed, randomize, self.grasp)
         self.data = mujoco.MjData(self.model)
         m = self.model
         self.qadr = {a: np.array([m.joint(f"{a}_{j}").qposadr[0] for j in ARM_JOINTS]) for a in ARMS}
@@ -41,6 +42,10 @@ class DinnerTableEnv:
         self.fsite = {a: m.site(f"{a}_gripperframe").id for a in ARMS}
         self.eq = {(a, o): m.equality(f"grip_{a}_{o}").id for a in ARMS for o in OBJECTS + ("drawer",)}
         self.held = {a: None for a in ARMS}
+        if self.grasp == "contact":
+            self.pads = {a: (m.geom(f"{a}_pad_fixed").id, m.geom(f"{a}_pad_moving").id) for a in ARMS}
+            self.obj_body = {m.body(o).id: o for o in OBJECTS + ("drawer",)}
+            self.site_x0 = float(m.site_pos[self.site["A"]][0])
         self.intent = {a: None for a in ARMS}   # object the current skill wants to grasp (None = any)
         self.blocked = {a: False for a in ARMS}  # gripper closed on nothing -> must reopen before grasping
         for a in ARMS:
@@ -77,6 +82,9 @@ class DinnerTableEnv:
         It is only triggered when the object is physically between the jaws (< 2.5 cm).
         """
         m, d = self.model, self.data
+        if self.grasp == "contact":
+            self.held[arm] = self._pinched(arm)
+            return
         closing = grip_cmd < 0.35
         if not closing:
             if self.held[arm] is not None:
@@ -121,6 +129,36 @@ class DinnerTableEnv:
         m.eq_data[eid][10] = 0.0 if best == "drawer" else 1.0  # drawer: position-only coupling
         d.eq_active[eid] = 1
         self.held[arm] = best
+
+    def _pinched(self, arm):
+        """Contact mode: the object touched by BOTH pads of this gripper (None if there is none)."""
+        m, d = self.model, self.data
+        fixed, moving = self.pads[arm]
+        touch = {fixed: set(), moving: set()}
+        for i in range(d.ncon):
+            c = d.contact[i]
+            for pad, other in ((c.geom1, c.geom2), (c.geom2, c.geom1)):
+                if pad in touch and c.dist < 1e-3:
+                    o = self.obj_body.get(int(m.geom_bodyid[other]))
+                    if o is not None:
+                        touch[pad].add(o)
+        both = touch[fixed] & touch[moving]
+        if not both:
+            return None
+        if self.held[arm] in both:
+            return self.held[arm]
+        return self.intent[arm] if self.intent[arm] in both else sorted(both)[0]
+
+    def set_grasp_halfwidth(self, arm, half_width=None, clearance=0.003):
+        """Contact mode: move the grasp site so an object of this half-width sits just off the fixed pad.
+
+        The fixed finger does not move, so the IK target must put the object's near side next to it; the weld
+        assist never needed this. None restores the nominal site."""
+        if self.grasp != "contact":
+            return
+        x = self.site_x0 if half_width is None else -CONTACT["face_x"] + half_width + clearance
+        self.model.site_pos[self.site[arm]][0] = x
+        mujoco.mj_kinematics(self.model, self.data)
 
     def _update_pour(self):
         """Pour counter: bottle tilted > 55 deg with its spout within 4 cm (horizontally) above the mug opening."""
@@ -304,6 +342,48 @@ class DinnerTableEnv:
             half = float(g.size[1] if int(g.type[0]) == 5 else g.size[2])
             p[2] += half - 0.014   # near the top rim / neck
         return p
+
+    def grasp_spec(self, obj, arm, point=None):
+        """Contact mode: where and how to pinch an object.
+
+        Returns dict(point, half, dir, signed, open):
+          point   world target for the grasp site (which sits 10 mm above the fingertips)
+          half    half-width of the part between the pads
+          dir     world xy direction the jaws must close along (None: any)
+          signed  True if `dir` must point from the fixed finger to the moving finger
+          open    gripper opening before the descent
+        """
+        d, m = self.data, self.model
+        up = CONTACT["site_above_tip"]
+        if obj == "drawer":
+            h = self.handle_pos()
+            return dict(point=h + [0, 0, -0.022 + up], half=0.005, dir=np.array([-1.0, 0.0]), signed=True, open=0.45)
+        c = d.body(obj).xpos.copy()
+        R = d.body(obj).xmat.reshape(3, 3)
+        g = m.geom(f"{obj}_geom")
+        half_h = float(g.size[1] if int(g.type[0]) == 5 else g.size[2])
+        if obj == "bottle":
+            return dict(point=c + [0, 0, half_h - 0.040 + up], half=float(g.size[0]), dir=None, signed=False,
+                        open=GRIP_OPEN)
+        if obj == "mug":
+            post = m.geom("mug_handle_post")
+            pc = d.geom_xpos[post.id]
+            return dict(point=np.array([pc[0], pc[1], pc[2] - float(post.size[2]) + 0.004 + up]),
+                        half=CONTACT["handle_half"], dir=R[:2, 1] / np.linalg.norm(R[:2, 1]), signed=False, open=0.6)
+        if obj == "plate":
+            rr = self.info.params["plate_r"] - CONTACT["rim_half"]
+            return dict(point=c + [rr, 0, half_h + 0.002 + up], half=CONTACT["rim_half"], dir=np.array([1.0, 0.0]),
+                        signed=False, open=0.5)
+        if obj in ("fork", "spoon"):
+            ends = self.grasp_points(obj)
+            p = ends[0] if point is None else min(ends, key=lambda e: np.linalg.norm(e - np.asarray(point)))
+            other = d.body("spoon" if obj == "fork" else "fork").xpos
+            across = R[:2, 1] / np.linalg.norm(R[:2, 1])
+            if across @ (other[:2] - c[:2]) < 0:     # moving finger goes into the gap between the two pieces
+                across = -across
+            return dict(point=np.array([p[0], p[1], c[2] - 0.003 + up]), half=0.005, dir=across,
+                        signed=self.drawer_open() > 0.03 and c[2] < 0.03, open=0.1)
+        raise ValueError(obj)
 
     def grasp_points(self, obj):
         if obj in ("fork", "spoon"):

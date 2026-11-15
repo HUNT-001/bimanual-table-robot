@@ -30,11 +30,67 @@ class SceneInfo:
     params: dict = field(default_factory=dict)   # randomization record
 
 
+GRASP_MODES = ("assist", "contact")
+
+# Contact-grasp physics (used only with grasp="contact"). Lengths in metres, gripper/jaw body frames.
+CONTACT = dict(
+    pad_friction=(1.6, 0.03, 0.002),   # sliding, torsional, rolling: a soft rubber pad as a patch contact
+    pad_condim=6,
+    pad_solref=(0.01, 1.0),
+    pad_solimp=(0.95, 0.99, 0.001, 0.5, 2),
+    grip_force=1.2,                    # N*m torque limit of the gripper servo while squeezing (stall is 3.35)
+    impratio=10.0,
+    face_x=0.008,                      # inner pad face of each finger at jaw angle 0 (measured from the meshes)
+    tip_z=-0.104,                      # fingertip end along the gripper z axis
+    site_above_tip=0.010,              # the grasp site sits this far above the fingertips, on the pad
+    handle_half=0.004,                 # mug handle post half-thickness (collides in contact mode)
+    rim_half=0.002, rim_height=0.016,  # dish rim wall of the plate
+)
+
+
+def _add_contact_fingers(child):
+    """Replace the convex-hull finger meshes by box fingers with friction pads.
+
+    MuJoCo collides meshes as convex hulls; the hull of the fixed jaw fills the gap between palm and fingertip,
+    so a pinch never gets two parallel faces on the object. The boxes follow the measured finger profile:
+    about 22 mm thick near the palm, 14 mm in the middle and 7.5 mm over the last 19 mm (pad included)."""
+    box = mujoco.mjtGeom.mjGEOM_BOX
+    for g in child.geoms:
+        if g.classname.name == "collision" and g.meshname in ("wrist_roll_follower_so101_v1", "moving_jaw_so101_v1"):
+            g.contype, g.conaffinity = 0, 0
+    c = CONTACT
+    pad = dict(type=box, friction=list(c["pad_friction"]), condim=c["pad_condim"], solref=list(c["pad_solref"]),
+               solimp=list(c["pad_solimp"]), priority=1, rgba=[0.15, 0.15, 0.15, 1], mass=0.002)
+    hid = dict(type=box, rgba=[0, 0, 0, 0], mass=0.0)
+    gr = child.body("gripper")                   # gripper frame: fingers along -z, jaws close along x
+    gr.add_geom(name="pad_fixed", pos=[-0.0095, 0, -0.080], size=[0.0015, 0.007, 0.024], **pad)
+    gr.add_geom(name="tip_fixed", pos=[-0.01325, 0, -0.0945], size=[0.00225, 0.006, 0.0095], **hid)
+    gr.add_geom(name="mid_fixed", pos=[-0.0165, 0, -0.0775], size=[0.0055, 0.007, 0.0075], **hid)
+    gr.add_geom(name="finger_fixed", pos=[-0.0205, 0, -0.0575], size=[0.0095, 0.008, 0.0125], **hid)
+    gr.add_geom(name="palm", pos=[-0.0025, -0.002, -0.022], size=[0.0325, 0.026, 0.022], **hid)
+    jaw = child.body("moving_jaw_so101_v1")      # jaw frame: x = gripper x - 0.0202, y = gripper z + 0.0234,
+    jz = 0.0188                                  #            z = 0.0188 - gripper y
+    jaw.add_geom(name="pad_moving", pos=[-0.0107, -0.0566, jz], size=[0.0015, 0.024, 0.007], **pad)
+    jaw.add_geom(name="tip_moving", pos=[-0.00695, -0.0711, jz], size=[0.00225, 0.0095, 0.006], **hid)
+    jaw.add_geom(name="mid_moving", pos=[-0.0037, -0.0541, jz], size=[0.0055, 0.0075, 0.007], **hid)
+    jaw.add_geom(name="finger_moving", pos=[0.0003, -0.0341, jz], size=[0.0095, 0.0125, 0.008], **hid)
+    jaw.add_geom(name="jaw_block", pos=[-0.001, -0.0085, 0.019], size=[0.011, 0.0185, 0.024], **hid)
+    for a in child.actuators:
+        if a.name == "gripper":
+            a.forcerange = [-c["grip_force"], c["grip_force"]]
+    # grasp site: on the pad, a fixed distance above the fingertips (x is set per object by the env)
+    child.body("gripper").add_site(name="grasp", pos=[0.0, 0.0, c["tip_z"] + c["site_above_tip"]],
+                                   size=[0.004] * 3, rgba=[1, 0, 0, 0.0])
+
+
 def _rng_color(rng, lo=0.2, hi=0.9):
     return [*rng.uniform(lo, hi, 3), 1.0]
 
 
-def build_scene(seed: int = 0, randomize: bool = True) -> tuple[mujoco.MjModel, SceneInfo]:
+def build_scene(seed: int = 0, randomize: bool = True,
+                grasp: str = "assist") -> tuple[mujoco.MjModel, SceneInfo]:
+    assert grasp in GRASP_MODES, grasp
+    contact = grasp == "contact"
     rng = np.random.default_rng(seed)
     r = (lambda lo, hi: rng.uniform(lo, hi)) if randomize else (lambda lo, hi: 0.5 * (lo + hi))
     info = SceneInfo(seed=seed)
@@ -43,6 +99,9 @@ def build_scene(seed: int = 0, randomize: bool = True) -> tuple[mujoco.MjModel, 
     spec.option.timestep = 0.002
     spec.option.integrator = mujoco.mjtIntegrator.mjINT_IMPLICITFAST
     spec.option.noslip_iterations = 3
+    if contact:   # friction grasps need an accurate friction cone (multi-point CCD is on by default)
+        spec.option.cone = mujoco.mjtCone.mjCONE_ELLIPTIC
+        spec.option.impratio = CONTACT["impratio"]
     spec.visual.global_.offwidth = 1280
     spec.visual.global_.offheight = 720
     spec.visual.quality.shadowsize = 2048
@@ -92,9 +151,11 @@ def build_scene(seed: int = 0, randomize: bool = True) -> tuple[mujoco.MjModel, 
         for g in child.geoms:
             if g.classname.name == "collision":
                 g.contype, g.conaffinity = 1, 1
-        # grasp site between the jaws
-        child.body("gripper").add_site(name="grasp", pos=[0.020, 0.0, -0.090], size=[0.006] * 3,
-                                       rgba=[1, 0, 0, 0.0])
+        if contact:
+            _add_contact_fingers(child)
+        else:   # grasp site between the jaws
+            child.body("gripper").add_site(name="grasp", pos=[0.020, 0.0, -0.090], size=[0.006] * 3,
+                                           rgba=[1, 0, 0, 0.0])
         frame = wb.add_frame(pos=[0, y, 0])
         frame.attach_body(child.body("base"), f"{arm}_", "")
 
@@ -109,7 +170,7 @@ def build_scene(seed: int = 0, randomize: bool = True) -> tuple[mujoco.MjModel, 
     cab.add_geom(type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.004, cab_w, 0.039], pos=[0.06, 0, 0.039], rgba=wall_rgb)
     drawer = cab.add_body(name="drawer", pos=[0, 0, 0.012])
     drawer.add_joint(name="drawer_slide", type=mujoco.mjtJoint.mjJNT_SLIDE, axis=[-1, 0, 0],
-                     range=[0, 0.085], damping=2.0, frictionloss=2.0)
+                     range=[0, 0.115 if contact else 0.085], damping=2.0, frictionloss=2.0)
     dcol = [0.55, 0.35, 0.2, 1]
     drawer.add_geom(type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.055, cab_w - 0.006, 0.003], pos=[0, 0, 0], rgba=dcol, mass=0.1)
     drawer.add_geom(type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.003, cab_w - 0.006, 0.02], pos=[-0.055, 0, 0.02], rgba=dcol, mass=0.05)
@@ -141,9 +202,25 @@ def build_scene(seed: int = 0, randomize: bool = True) -> tuple[mujoco.MjModel, 
     s = r(0.85, 1.15)
     plate_r, plate_h = 0.045 * s, 0.006
     plate_m = r(0.05, 0.15)
-    p = free_body("plate", [*layout["plate"], plate_h + 0.001])
-    p.add_geom(name="plate_geom", type=mujoco.mjtGeom.mjGEOM_CYLINDER, size=[plate_r, plate_h, 0],
-               rgba=_rng_color(rng, 0.7, 1.0), mass=plate_m, friction=obj_fric(), condim=4)
+    if not contact:
+        p = free_body("plate", [*layout["plate"], plate_h + 0.001])
+        p.add_geom(name="plate_geom", type=mujoco.mjtGeom.mjGEOM_CYLINDER, size=[plate_r, plate_h, 0],
+                   rgba=_rng_color(rng, 0.7, 1.0), mass=plate_m, friction=obj_fric(), condim=4)
+    else:
+        # A flat disk cannot be pinched from above. The contact-mode plate is a dish: a 4 mm base with an
+        # upright rim wall (ring of boxes) that one finger goes inside of and the other outside.
+        base_h, rh, rt = 0.002, CONTACT["rim_height"] / 2, CONTACT["rim_half"]
+        pcol, pfr = _rng_color(rng, 0.7, 1.0), obj_fric()
+        p = free_body("plate", [*layout["plate"], base_h + 0.001])
+        p.add_geom(name="plate_geom", type=mujoco.mjtGeom.mjGEOM_CYLINDER, size=[plate_r, base_h, 0],
+                   rgba=pcol, mass=plate_m * 0.7, friction=pfr, condim=4)
+        n_seg, rr = 24, plate_r - rt
+        for k in range(n_seg):
+            th = 2 * np.pi * k / n_seg
+            p.add_geom(type=mujoco.mjtGeom.mjGEOM_BOX, size=[rt, rr * np.tan(np.pi / n_seg) + rt, rh],
+                       pos=[rr * np.cos(th), rr * np.sin(th), rh - base_h],
+                       quat=[np.cos(th / 2), 0, 0, np.sin(th / 2)], rgba=pcol, mass=plate_m * 0.3 / n_seg,
+                       friction=pfr, condim=4)
 
     mug_shape = rng.integers(0, 2) if randomize else 0  # 0 cylinder, 1 box (shape randomization)
     mug_r, mug_h, mug_m = 0.02 * r(0.9, 1.1), 0.03 * r(0.9, 1.15), r(0.03, 0.12)
@@ -157,12 +234,17 @@ def build_scene(seed: int = 0, randomize: bool = True) -> tuple[mujoco.MjModel, 
                     rgba=mcol, mass=mug_m, friction=obj_fric(), condim=4)
     # handle: sticks out along local +x so a gripper can hold the mug without covering the opening
     HL = 0.028  # handle reach
+    hc = int(contact)                       # the handle only collides when it has to be gripped by friction
+    hh = CONTACT["handle_half"] if contact else 0.003
+    hkw = dict(rgba=mcol, mass=0.002, contype=hc, conaffinity=hc)
+    if contact:
+        hkw.update(friction=obj_fric(), condim=4)
     mg.add_geom(type=mujoco.mjtGeom.mjGEOM_BOX, size=[HL / 2, 0.003, 0.003], pos=[mug_r + HL / 2, 0, mug_h * 0.55],
-                rgba=mcol, mass=0.002, contype=0, conaffinity=0)
-    mg.add_geom(type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.003, 0.003, mug_h * 0.55], pos=[mug_r + HL, 0, 0],
-                rgba=mcol, mass=0.002, contype=0, conaffinity=0)
+                **hkw)
+    mg.add_geom(name="mug_handle_post", type=mujoco.mjtGeom.mjGEOM_BOX, size=[hh, hh, mug_h * 0.55],
+                pos=[mug_r + HL, 0, 0], **hkw)
     mg.add_geom(type=mujoco.mjtGeom.mjGEOM_BOX, size=[HL / 2, 0.003, 0.003], pos=[mug_r + HL / 2, 0, -mug_h * 0.55],
-                rgba=mcol, mass=0.002, contype=0, conaffinity=0)
+                **hkw)
     mg.add_site(name="mug_handle", pos=[mug_r + HL, 0, mug_h * 0.3], size=[0.003] * 3, rgba=[0, 0, 0, 0])
     mg.add_site(name="mug_top", pos=[0, 0, mug_h], size=[0.004] * 3, rgba=[0, 0, 0, 0])
 
@@ -176,7 +258,9 @@ def build_scene(seed: int = 0, randomize: bool = True) -> tuple[mujoco.MjModel, 
 
     # cutlery sits inside the drawer, lying along y so it can be handed across the midline
     cut_z = 0.012 + 0.003 + 0.004
-    for name, xoff, col in (("fork", -0.034, [0.75, 0.75, 0.8, 1]), ("spoon", -0.012, [0.85, 0.8, 0.6, 1])):
+    # contact mode spreads the two pieces (38 mm instead of 22 mm apart) so a fingertip fits beside each
+    fork_x, spoon_x = (-0.022, 0.016) if contact else (-0.034, -0.012)
+    for name, xoff, col in (("fork", fork_x, [0.75, 0.75, 0.8, 1]), ("spoon", spoon_x, [0.85, 0.8, 0.6, 1])):
         cx, cy = cab_x + xoff + r(-0.003, 0.003), r(-0.015, 0.015)
         layout[name] = (cx, cy)
         c = free_body(name, [cx, cy, cut_z], yaw=np.pi / 2 + r(-0.1, 0.1))
@@ -209,5 +293,5 @@ def build_scene(seed: int = 0, randomize: bool = True) -> tuple[mujoco.MjModel, 
     model = spec.compile()
     info.layout = layout
     info.params.update(targets=targets, plate_r=plate_r, mug_shape=int(mug_shape), mug_mass=mug_m,
-                       bottle_mass=bot_m, plate_mass=plate_m, size_scale=s)
+                       bottle_mass=bot_m, plate_mass=plate_m, size_scale=s, grasp=grasp)
     return model, info
