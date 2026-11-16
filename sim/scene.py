@@ -31,6 +31,10 @@ class SceneInfo:
 
 
 GRASP_MODES = ("assist", "contact")
+# "legacy": the scene of the first submission (flat plate, visual-only mug handle, cutlery 22 mm apart, 85 mm drawer).
+# "v2": a plate with a pinchable rim, a colliding mug handle, cutlery 38 mm apart and a 115 mm drawer. Contact
+# grasps need v2; assist grasps run on either, so the two modes can be compared on identical objects and layouts.
+SCENES = ("legacy", "v2")
 
 # Contact-grasp physics (used only with grasp="contact"). Lengths in metres, gripper/jaw body frames.
 CONTACT = dict(
@@ -87,10 +91,12 @@ def _rng_color(rng, lo=0.2, hi=0.9):
     return [*rng.uniform(lo, hi, 3), 1.0]
 
 
-def build_scene(seed: int = 0, randomize: bool = True,
-                grasp: str = "assist") -> tuple[mujoco.MjModel, SceneInfo]:
+def build_scene(seed: int = 0, randomize: bool = True, grasp: str = "assist",
+                scene: str = "legacy") -> tuple[mujoco.MjModel, SceneInfo]:
     assert grasp in GRASP_MODES, grasp
-    contact = grasp == "contact"
+    assert scene in SCENES, scene
+    contact = grasp == "contact"          # gripper: box fingers with friction pads, elliptic cone
+    v2 = contact or scene == "v2"         # objects and layout
     rng = np.random.default_rng(seed)
     r = (lambda lo, hi: rng.uniform(lo, hi)) if randomize else (lambda lo, hi: 0.5 * (lo + hi))
     info = SceneInfo(seed=seed)
@@ -170,7 +176,7 @@ def build_scene(seed: int = 0, randomize: bool = True,
     cab.add_geom(type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.004, cab_w, 0.039], pos=[0.06, 0, 0.039], rgba=wall_rgb)
     drawer = cab.add_body(name="drawer", pos=[0, 0, 0.012])
     drawer.add_joint(name="drawer_slide", type=mujoco.mjtJoint.mjJNT_SLIDE, axis=[-1, 0, 0],
-                     range=[0, 0.115 if contact else 0.085], damping=2.0, frictionloss=2.0)
+                     range=[0, 0.115 if v2 else 0.085], damping=2.0, frictionloss=2.0)
     dcol = [0.55, 0.35, 0.2, 1]
     drawer.add_geom(type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.055, cab_w - 0.006, 0.003], pos=[0, 0, 0], rgba=dcol, mass=0.1)
     drawer.add_geom(type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.003, cab_w - 0.006, 0.02], pos=[-0.055, 0, 0.02], rgba=dcol, mass=0.05)
@@ -202,7 +208,7 @@ def build_scene(seed: int = 0, randomize: bool = True,
     s = r(0.85, 1.15)
     plate_r, plate_h = 0.045 * s, 0.006
     plate_m = r(0.05, 0.15)
-    if not contact:
+    if not v2:
         p = free_body("plate", [*layout["plate"], plate_h + 0.001])
         p.add_geom(name="plate_geom", type=mujoco.mjtGeom.mjGEOM_CYLINDER, size=[plate_r, plate_h, 0],
                    rgba=_rng_color(rng, 0.7, 1.0), mass=plate_m, friction=obj_fric(), condim=4)
@@ -234,10 +240,10 @@ def build_scene(seed: int = 0, randomize: bool = True,
                     rgba=mcol, mass=mug_m, friction=obj_fric(), condim=4)
     # handle: sticks out along local +x so a gripper can hold the mug without covering the opening
     HL = 0.028  # handle reach
-    hc = int(contact)                       # the handle only collides when it has to be gripped by friction
-    hh = CONTACT["handle_half"] if contact else 0.003
+    hc = int(v2)                       # the handle only collides when it has to be gripped by friction
+    hh = CONTACT["handle_half"] if v2 else 0.003
     hkw = dict(rgba=mcol, mass=0.002, contype=hc, conaffinity=hc)
-    if contact:
+    if v2:
         hkw.update(friction=obj_fric(), condim=4)
     mg.add_geom(type=mujoco.mjtGeom.mjGEOM_BOX, size=[HL / 2, 0.003, 0.003], pos=[mug_r + HL / 2, 0, mug_h * 0.55],
                 **hkw)
@@ -258,8 +264,8 @@ def build_scene(seed: int = 0, randomize: bool = True,
 
     # cutlery sits inside the drawer, lying along y so it can be handed across the midline
     cut_z = 0.012 + 0.003 + 0.004
-    # contact mode spreads the two pieces (38 mm instead of 22 mm apart) so a fingertip fits beside each
-    fork_x, spoon_x = (-0.022, 0.016) if contact else (-0.034, -0.012)
+    # v2 spreads the two pieces (38 mm instead of 22 mm apart) so a fingertip fits beside each
+    fork_x, spoon_x = (-0.022, 0.016) if v2 else (-0.034, -0.012)
     for name, xoff, col in (("fork", fork_x, [0.75, 0.75, 0.8, 1]), ("spoon", spoon_x, [0.85, 0.8, 0.6, 1])):
         cx, cy = cab_x + xoff + r(-0.003, 0.003), r(-0.015, 0.015)
         layout[name] = (cx, cy)
@@ -293,5 +299,5 @@ def build_scene(seed: int = 0, randomize: bool = True,
     model = spec.compile()
     info.layout = layout
     info.params.update(targets=targets, plate_r=plate_r, mug_shape=int(mug_shape), mug_mass=mug_m,
-                       bottle_mass=bot_m, plate_mass=plate_m, size_scale=s, grasp=grasp)
+                       bottle_mass=bot_m, plate_mass=plate_m, size_scale=s, grasp=grasp, scene="v2" if v2 else "legacy")
     return model, info

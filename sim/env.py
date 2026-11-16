@@ -21,9 +21,10 @@ ARM_DOF = 5
 
 class DinnerTableEnv:
     def __init__(self, seed: int = 0, randomize: bool = True, img_hw=(96, 128),
-                 cameras=("overhead", "front"), render_video: bool = False, grasp: str = "assist"):
+                 cameras=("overhead", "front"), render_video: bool = False, grasp: str = "assist", scene: str = "legacy"):
         self.img_hw, self.cameras = img_hw, cameras
         self.grasp = grasp                # "assist": weld on close; "contact": friction only
+        self.scene = "v2" if grasp == "contact" else scene   # contact grasps need the v2 objects
         self.render_video = render_video
         self._renderer = None
         self._video_renderer = None
@@ -32,7 +33,7 @@ class DinnerTableEnv:
     # ------------------------------------------------------------------ setup
     def reset(self, seed: int = 0, randomize: bool = True):
         self.seed = seed
-        self.model, self.info = build_scene(seed, randomize, self.grasp)
+        self.model, self.info = build_scene(seed, randomize, self.grasp, self.scene)
         self.data = mujoco.MjData(self.model)
         m = self.model
         self.qadr = {a: np.array([m.joint(f"{a}_{j}").qposadr[0] for j in ARM_JOINTS]) for a in ARMS}

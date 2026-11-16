@@ -5,7 +5,10 @@ Each trial is one randomized scene and one object. Stages (each requires the pre
   transport  still held after a 10 cm sideways carry and a wrist shake (otherwise: slip/drop)
   place      object ends on its target (upright for mug and bottle)
 
-    python scripts/grasp_trials.py --seeds 400-499 --grasp contact assist --out results/phase1/grasp_trials_dev.json
+Configurations are written mode@scene. contact@v2 and assist@v2 share objects, layout and randomization, so they
+are directly comparable; assist@legacy is the first-submission scene, kept only as a reference.
+
+    python scripts/grasp_trials.py --seeds 400-499 --grasp contact@v2 assist@v2 --out results/phase1/grasp_trials_dev.json
 """
 import argparse
 import json
@@ -23,9 +26,10 @@ def run_trial(kw):
     import numpy as np
     from planner.skills import SkillLibrary
     from sim.env import DinnerTableEnv
-    seed, obj, grasp = kw["seed"], kw["obj"], kw["grasp"]
+    seed, obj, grasp = kw["seed"], kw["obj"], kw["grasp"]      # grasp is a "mode@scene" label
     arm = OBJECT_ARM[obj]
-    env = DinnerTableEnv(seed, grasp=grasp)
+    mode, _, scene = grasp.partition("@")
+    env = DinnerTableEnv(seed, grasp=mode, scene=scene or "legacy")
     S = SkillLibrary(env)
     out = dict(seed=seed, obj=obj, grasp=grasp, pick=False, transport=False, place=False, note="")
 
@@ -80,7 +84,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", default="400-499")
     ap.add_argument("--objects", nargs="+", default=list(OBJECT_ARM))
-    ap.add_argument("--grasp", nargs="+", default=["contact", "assist"])
+    ap.add_argument("--grasp", nargs="+", default=["contact@v2", "assist@v2"],
+                    help="mode@scene configurations; assist@legacy is the first-submission scene and is not "
+                         "comparable with the v2 rows")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--out", default="results/grasp_trials.json")
     a = ap.parse_args()
@@ -90,7 +96,11 @@ def main():
     with ProcessPoolExecutor(a.workers) as pool:
         trials = list(pool.map(run_trial, jobs, chunksize=4))
     summary = []
-    print(f"{'grasp':8s} {'object':7s} {'n':>4s} {'pick':>18s} {'no slip/drop':>18s} {'place':>18s}")
+    a.grasp = [g if "@" in g else g + ("@v2" if g == "contact" else "@legacy") for g in a.grasp]
+    for x in trials:
+        if "@" not in x["grasp"]:
+            x["grasp"] += "@v2" if x["grasp"] == "contact" else "@legacy"
+    print(f"{'grasp@scene':14s} {'object':7s} {'n':>4s} {'pick':>18s} {'no slip/drop':>18s} {'place':>18s}")
     for g in a.grasp:
         for o in a.objects:
             t = [x for x in trials if x["grasp"] == g and x["obj"] == o]
@@ -106,7 +116,7 @@ def main():
             row["errors"] = sorted({x["note"] for x in t if x["note"]})[:5]
             summary.append(row)
             f = lambda s: f"{row[s]['k']:3d} [{100 * row[s]['ci95'][0]:3.0f}-{100 * row[s]['ci95'][1]:3.0f}%]"
-            print(f"{g:8s} {o:7s} {n:4d} {f('pick'):>18s} {f('transport'):>18s} {f('place'):>18s}")
+            print(f"{g:14s} {o:7s} {n:4d} {f('pick'):>18s} {f('transport'):>18s} {f('place'):>18s}")
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "w") as fh:
         json.dump(dict(seeds=a.seeds, wall_s=round(time.time() - t0), summary=summary, trials=trials), fh, indent=1)
