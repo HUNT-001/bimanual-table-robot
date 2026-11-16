@@ -55,7 +55,9 @@ def collect():
             "not present on this machine (not measured)"
     except Exception:
         info["openvino_devices"] = None
-    info["pip_freeze"] = _run([sys.executable, "-m", "pip", "freeze"]).splitlines()
+    # editable / VCS / direct-URL installs belong to other projects and can name private repositories or paths
+    info["pip_freeze"] = [ln for ln in _run([sys.executable, "-m", "pip", "freeze"]).splitlines()
+                          if not (ln.startswith("-e ") or " @ " in ln or "git+" in ln)]
     return info
 
 

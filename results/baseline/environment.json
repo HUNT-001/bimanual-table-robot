@@ -97,7 +97,6 @@
   "email-validator==2.3.0",
   "et_xmlfile==2.0.0",
   "etils==1.14.0",
-  "-e git+https://github.com/HUNT-001/Electro-thermal-modelling@c981e165f9a4f77f78565c95a68afc2e95825270#egg=etm&subdirectory=etm",
   "faiss-cpu==1.13.2",
   "fastapi==0.115.0",
   "feather-format==0.4.1",
@@ -379,5 +378,6 @@
   "yarl==1.24.2",
   "zipp==4.1.0",
   "zstandard==0.23.0"
- ]
+ ],
+ "pip_freeze_note": "editable and VCS/direct-URL installs omitted (unrelated to this project)"
 }
