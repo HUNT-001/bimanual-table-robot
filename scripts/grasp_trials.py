@@ -46,10 +46,14 @@ def run_trial(kw):
                 return out
             sign = 1 if arm == "A" else -1
             gp = max(env.grasp_points(obj), key=lambda p: sign * p[1])
+            z_rest = float(env.data.body(obj).xpos[2])
             run(S.pick(arm, obj, grasp_point=gp))
         else:
+            z_rest = float(env.data.body(obj).xpos[2])
             run(S.pick(arm, obj))
         out["pick"] = env.held[arm] == obj
+        # how much of the commanded lift the object actually followed (a shortfall is slip inside the grasp)
+        out["lift_mm"] = round(1000 * (float(env.data.body(obj).xpos[2]) - z_rest), 1)
         if not out["pick"]:
             return out
         rel0 = env.data.body(obj).xpos - env.ee_pos(arm)
@@ -113,6 +117,9 @@ def main():
             dropped = picked - sum(x["transport"] for x in t)
             row["drop_given_pick"] = dict(k=dropped, n=picked, rate=dropped / max(1, picked),
                                           ci95=list(wilson(dropped, picked)))
+            lifts = sorted(x["lift_mm"] for x in t if x["pick"] and "lift_mm" in x)
+            row["lift_mm_median"] = lifts[len(lifts) // 2] if lifts else None      # commanded lift is 70 mm
+            row["lift_mm_min"] = lifts[0] if lifts else None
             row["errors"] = sorted({x["note"] for x in t if x["note"]})[:5]
             summary.append(row)
             f = lambda s: f"{row[s]['k']:3d} [{100 * row[s]['ci95'][0]:3.0f}-{100 * row[s]['ci95'][1]:3.0f}%]"
