@@ -33,8 +33,25 @@ class EpisodeResult:
     success: bool = False
     subgoals: dict = field(default_factory=dict)
     sim_steps: int = 0
-    wall_s: float = 0.0
+    wall_s: float = 0.0              # active wall-clock time (time the machine spent suspended is excluded)
+    suspended_s: float = 0.0
+    timed_out: str | None = None     # "wall_clock" or "sim_steps" when the episode was cut off
     policy_latency_ms: list = field(default_factory=list)
+
+
+def _clock():
+    """Monotonic seconds; a function so tests can substitute a fake clock."""
+    return time.monotonic()
+
+
+class EpisodeTimeout(Exception):
+    """Raised inside a control step when the wall-clock or simulated-step budget of an episode is used up."""
+
+
+# A gap this long between two control steps is taken to be the machine being suspended (laptop sleep), not
+# work. A control step with inference takes milliseconds, but the roll search before a retried put-down can
+# take over a minute on a loaded machine (seed 1004), so the threshold has to sit well above that.
+SUSPEND_GAP_S = 300.0
 
 
 def postcondition(env: DinnerTableEnv, step: dict) -> bool:
@@ -55,8 +72,10 @@ def postcondition(env: DinnerTableEnv, step: dict) -> bool:
 
 class Executor:
     def __init__(self, env: DinnerTableEnv, policy=None, policy_skills=("pick",), max_retries=2,
-                 frame_cb=None, verbose=True, policy_objects=("plate", "mug")):
+                 frame_cb=None, verbose=True, policy_objects=("plate", "mug"), timeout_s=None, max_sim_steps=None):
         self.env = env
+        self.timeout_s = timeout_s              # wall-clock budget of one episode, seconds of active time
+        self.max_sim_steps = max_sim_steps      # deterministic budget in control steps (20 per simulated second)
         self.skills = SkillLibrary(env)
         self.policy = policy            # object with .act(env, text) generator, or None
         self.policy_skills = set(policy_skills)
@@ -119,10 +138,22 @@ class Executor:
                 self.record.append(dict(text=text, ctrl=ctrl.copy(), state=self.env.proprio(),
                                         images=self.env.images()))
             self.env.step(ctrl)
+            self._tick()
             n += 1
             if self.frame_cb:
                 self.frame_cb(self.env, text)
         return n
+
+    def _tick(self):
+        """Budget check after every control step. Suspended time (a long gap between steps) is not counted."""
+        now = _clock()
+        gap, self._last = now - self._last, now
+        if gap > SUSPEND_GAP_S:
+            self._slept += gap
+        if self.timeout_s and now - self._t0 - self._slept > self.timeout_s:
+            raise EpisodeTimeout("wall_clock")
+        if self.max_sim_steps and self.env.t - self._step0 > self.max_sim_steps:
+            raise EpisodeTimeout("sim_steps")
 
     def _home_free_arms(self, text):
         S = self.skills
@@ -132,12 +163,28 @@ class Executor:
 
     def run(self, plan, instruction="", seed=None) -> EpisodeResult:
         env = self.env
+        res = EpisodeResult(seed=env.seed if seed is None else seed, instruction=instruction)
+        self._t0 = self._last = _clock()
+        self._slept, self._step0 = 0.0, env.t
+        try:
+            self._run(plan, res)
+        except EpisodeTimeout as exc:
+            res.timed_out = str(exc)
+            if self.verbose:
+                print(f"  [timeout] episode stopped: {res.timed_out}")
+        res.sim_steps = env.t
+        res.suspended_s = self._slept
+        res.wall_s = _clock() - self._t0 - self._slept
+        res.subgoals = task_subgoals(env, plan)
+        res.success = all(res.subgoals.values()) and res.timed_out is None
+        return res
+
+    def _run(self, plan, res):
+        env = self.env
         for i, st in enumerate(plan):   # annotate picks that feed a hand-over
             if st["skill"] == "pick" and any(p["skill"] == "handoff" and p.get("obj") == st.get("obj")
                                              and p["arm"] == st["arm"] for p in plan[i + 1:i + 2]):
                 st["for_handoff"] = True
-        res = EpisodeResult(seed=env.seed if seed is None else seed, instruction=instruction)
-        t0 = time.time()
         queue = [dict(st) for st in plan]
         done_goals = {}          # goal key -> repair steps, for goals that were achieved earlier
         repairs = 0
@@ -195,11 +242,6 @@ class Executor:
                         queue[0:0] = [dict(f, repair=True, other=None, to=f.get("to")) for f in fix]
                         if self.verbose:
                             print(f"  [replan] '{k}' was undone -> inserting {len(fix)} repair step(s)")
-        res.sim_steps = env.t
-        res.wall_s = time.time() - t0
-        res.subgoals = task_subgoals(env, plan)
-        res.success = all(res.subgoals.values())
-        return res
 
 
 def task_subgoals(env: DinnerTableEnv, plan) -> dict:

@@ -3,6 +3,10 @@
     python scripts/evaluate.py --seeds 0-9 --out results/eval_expert.json
     python scripts/evaluate.py --seeds 0-9 --policy models/act_pick_int8.xml --device GPU --out results/eval_policy.json
     python scripts/evaluate.py --seeds 0-9 --videos videos/          # also records one video per seed
+    python scripts/evaluate.py --seeds 400-499 --grasp contact      # friction-only grasps (v2 scene)
+
+Episodes that hit the wall-clock or simulated-step budget, or that raise, are recorded as failures with
+`timed_out` / `error` set and counted in the summary; the exit code is 2 if any episode raised.
 """
 import argparse
 import json
@@ -26,17 +30,27 @@ def parse_seeds(s):
 
 
 def run_seed(kw):
+    """One episode. An exception becomes a recorded failure, so one bad seed cannot lose a whole run."""
+    try:
+        return _run_seed(kw)
+    except Exception as exc:
+        return dict(seed=kw["seed"], success=False, subgoals={}, steps=[], sim_time_s=0.0, wall_s=0.0, retries=0,
+                    policy_latency_ms=[], randomization={}, timed_out=None,
+                    error=f"{type(exc).__name__}: {exc}"[:300])
+
+
+def _run_seed(kw):
     from planner.executor import Executor
     from planner.language import RuleParser
     from sim.env import DinnerTableEnv
     seed, instruction = kw["seed"], kw["instruction"]
-    env = DinnerTableEnv(seed)
+    env = DinnerTableEnv(seed, grasp=kw.get("grasp", "assist"), scene=kw.get("scene", "legacy"))
     if kw.get("no_shadows"):
         env.model.light_castshadow[:] = 0
     policy = None
     if kw.get("policy"):
         from policy.runtime import load_policy
-        policy = load_policy(kw["policy"], kw.get("device", "CPU"))
+        policy = load_policy(kw["policy"], kw.get("device", "CPU"), threads=kw.get("threads"))
     vw = None
     if kw.get("videos"):
         from scripts.video import VideoWriter
@@ -44,16 +58,17 @@ def run_seed(kw):
                          every=kw.get("video_every", 2), hw=(kw.get("video_height", 480), kw.get("video_height", 480) * 4 // 3))
     po = kw.get("policy_objects", "plate,mug")
     ex = Executor(env, policy=policy, frame_cb=vw.on_step if vw else None, verbose=False,
-                  policy_objects="all" if po == "all" else tuple(po.split(",")))
+                  policy_objects="all" if po == "all" else tuple(po.split(",")),
+                  timeout_s=kw.get("timeout_s"), max_sim_steps=kw.get("max_sim_steps"))
     plan = RuleParser().parse(instruction)
-    t0 = time.time()
     res = ex.run(plan, instruction)
     if vw:
         vw.finish(env, res)
     p = env.info.params
     out = dict(seed=seed, success=bool(res.success), subgoals={k: bool(v) for k, v in res.subgoals.items()},
                steps=[dict(text=s.text, ok=bool(s.ok), attempts=s.attempts, executor=s.policy) for s in res.steps],
-               sim_time_s=res.sim_steps / 20.0, wall_s=round(time.time() - t0, 1),
+               sim_time_s=res.sim_steps / 20.0, wall_s=round(res.wall_s, 1), suspended_s=round(res.suspended_s, 1),
+               timed_out=res.timed_out, error=None,
                retries=sum(s.attempts - 1 for s in res.steps),
                policy_latency_ms=res.policy_latency_ms,
                randomization=dict(light=round(p["light_intensity"], 2), table_mu=round(p["table_friction"], 2),
@@ -67,13 +82,23 @@ def run_seed(kw):
 
 def main():
     from planner.language import DEFAULT_INSTRUCTION
+    from scripts.stats import wilson
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", default="0-9")
     ap.add_argument("--instruction", default=DEFAULT_INSTRUCTION)
     ap.add_argument("--policy", default=None)
     ap.add_argument("--device", default="CPU")
+    ap.add_argument("--threads", type=int, default=None, help="OpenVINO CPU inference threads (default: all)")
     ap.add_argument("--policy-objects", default="plate,mug",
                     help="objects whose pick uses the learned policy (comma list or 'all')")
+    ap.add_argument("--grasp", choices=["assist", "contact"], default="assist",
+                    help="assist: weld on close (default); contact: friction-only pinch (implies --scene v2)")
+    ap.add_argument("--scene", choices=["legacy", "v2"], default="legacy",
+                    help="legacy: first-submission objects; v2: rimmed plate, colliding handle, wider cutlery")
+    ap.add_argument("--timeout", type=float, default=1200.0,
+                    help="wall-clock seconds of active time per episode; suspended time is not counted (0 = none)")
+    ap.add_argument("--max-sim-steps", type=int, default=12000,
+                    help="control steps per episode (20 per simulated second; 0 = none)")
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) // 2))
     ap.add_argument("--videos", default=None, help="directory for per-seed videos")
     ap.add_argument("--video-every", type=int, default=2)
@@ -81,22 +106,32 @@ def main():
     ap.add_argument("--no-shadows", action="store_true")
     ap.add_argument("--out", default="results/eval.json")
     a = ap.parse_args()
-    from scripts.stats import wilson
+    if a.grasp == "contact" and a.scene == "legacy":
+        print("note: --grasp contact needs the v2 scene; using --scene v2")
+        a.scene = "v2"
     seeds = parse_seeds(a.seeds)
     jobs = [dict(seed=s, instruction=a.instruction, policy=a.policy, device=a.device, videos=a.videos,
-                 policy_objects=a.policy_objects,
+                 policy_objects=a.policy_objects, grasp=a.grasp, scene=a.scene, threads=a.threads,
+                 timeout_s=a.timeout or None, max_sim_steps=a.max_sim_steps or None,
                  video_every=a.video_every, video_height=a.video_height, no_shadows=a.no_shadows) for s in seeds]
+    t0 = time.time()
     with ProcessPoolExecutor(a.workers) as pool:
         results = list(pool.map(run_seed, jobs))
     goals = sorted({g for r in results for g in r["subgoals"]})
+    n_ok = sum(r["success"] for r in results)
+    n_timeout = sum(bool(r.get("timed_out")) for r in results)
+    n_error = sum(bool(r.get("error")) for r in results)
     summary = dict(
         instruction=a.instruction, policy=a.policy or "scripted-expert", device=a.device, n=len(results),
         policy_objects=a.policy_objects if a.policy else None,
-        success_rate=sum(r["success"] for r in results) / len(results),
-        success_ci95=list(wilson(sum(r["success"] for r in results), len(results))),
+        grasp=a.grasp, scene=a.scene, policy_threads=a.threads,
+        success_rate=n_ok / len(results),
+        success_ci95=list(wilson(n_ok, len(results))),
+        n_timed_out=n_timeout, n_errors=n_error, timeout_s=a.timeout, max_sim_steps=a.max_sim_steps,
         subgoal_rates={g: sum(r["subgoals"].get(g, False) for r in results) / len(results) for g in goals},
         mean_retries=sum(r["retries"] for r in results) / len(results),
         mean_sim_time_s=sum(r["sim_time_s"] for r in results) / len(results),
+        wall_total_s=round(time.time() - t0),
     )
     pol = [st for r in results for st in r["steps"] if st["executor"] == "policy"]
     if pol:
@@ -109,11 +144,13 @@ def main():
     with open(a.out, "w") as f:
         json.dump(dict(summary=summary, episodes=results), f, indent=1)
     # markdown table
+    tag = f"  [{a.grasp} grasp, {a.scene} scene]" if (a.grasp, a.scene) != ("assist", "legacy") else ""
     md = [f"# Evaluation: {summary['policy']}  ({summary['n']} seeds)"
-          + (f"  - learned picks: {a.policy_objects}" if a.policy else ""), "",
+          + (f"  - learned picks: {a.policy_objects}" if a.policy else "") + tag, "",
           f"**Task success: {summary['success_rate'] * 100:.0f}%** (95% CI {summary['success_ci95'][0] * 100:.0f}-"
           f"{summary['success_ci95'][1] * 100:.0f}%)  |  mean retries {summary['mean_retries']:.1f}"
           f"  |  mean episode {summary['mean_sim_time_s']:.0f} s (sim)"
+          f"  |  timed out {n_timeout}, errors {n_error}"
           + (f"  |  learned-policy steps solved without fallback: {summary['policy_first_try_success'] * 100:.0f}%"
              f" ({summary['policy_steps']} steps, {summary['policy_latency_ms_mean']:.1f} ms/inference)"
              if "policy_steps" in summary else ""), "",
@@ -121,14 +158,20 @@ def main():
           "|---|---|" + "---|" * len(goals) + "---|---|---|---|"]
     for r in results:
         rz = r["randomization"]
+        note = f"ERROR {r['error']}" if r.get("error") else ("timed out" if r.get("timed_out") else "")
         md.append(f"| {r['seed']} | {'yes' if r['success'] else 'no'} | " +
                   " | ".join("ok" if r["subgoals"].get(g) else "x" for g in goals) +
-                  f" | {r['retries']} | {rz['mug_shape']} {rz['mug_g']} g | {rz['light']} | {rz['table_mu']} |")
+                  (f" | {r['retries']} | {rz['mug_shape']} {rz['mug_g']} g | {rz['light']} | {rz['table_mu']} |"
+                   if rz else f" | | {note} | | |") + (f" {note}" if note and rz else ""))
     md.append("| **rate** | **{:.0f}%** | ".format(summary["success_rate"] * 100) +
               " | ".join(f"{summary['subgoal_rates'][g] * 100:.0f}%" for g in goals) + " | | | | |")
-    with open(os.path.splitext(a.out)[0] + ".md", "w") as f:
+    with open(os.path.splitext(a.out)[0] + ".md", "w", encoding="utf-8") as f:
         f.write("\n".join(md) + "\n")
     print("\n".join(md))
+    if n_error:
+        print(f"\nWARNING: {n_error} episode(s) raised; they are counted as failures. See 'error' in {a.out}.",
+              file=sys.stderr)
+        sys.exit(2)
 
 
 if __name__ == "__main__":
