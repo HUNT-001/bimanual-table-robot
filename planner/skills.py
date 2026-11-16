@@ -11,6 +11,7 @@ import numpy as np
 from sim.env import ARMS, GRIP_CLOSED, GRIP_OPEN, HOME, DinnerTableEnv
 
 LIFT = 0.07
+V2_DRAWER_PULL = 0.13   # assist pull on the v2 drawer (115 mm travel); the cutlery must clear the cabinet top
 TRANSIT_Z = 0.13
 CORRIDOR_X = 0.12
 
@@ -149,7 +150,13 @@ class SkillLibrary:
             q = self.cmd[arm].copy(); q[4] = self._closing_roll(arm, p + [0, 0, LIFT], g["dir"], g["signed"])
             yield from self.move(arm, q[:5], 10)
             yield from self.move_pos(arm, p + [0, 0, LIFT], 8, transit=False)   # re-centre after the roll
+        wide = g.get("descend_clear")
+        if wide:   # come down with the part centred between the fingers, then shift it next to the fixed pad
+            env.set_grasp_halfwidth(arm, g["half"], clearance=wide)
         yield from self.move_pos(arm, p, 20, transit=False)
+        if wide:
+            env.set_grasp_halfwidth(arm, g["half"])
+            yield from self.move_pos(arm, p, 8, transit=False)
         yield from self.hold(3)
         yield from self.gripper(arm, self.grip_closed, 12)
         yield from self.hold(8)
@@ -246,6 +253,8 @@ class SkillLibrary:
         yield from self.gripper(arm, self.grip_closed, 10)
         start = env.handle_pos()
         ap = env.ee_axis(arm)
+        if env.scene == "v2":
+            amount = V2_DRAWER_PULL
         for k in range(1, 9):
             yield from self.move_pos(arm, start + [-amount * k / 8, 0, 0.003], 6, approach=ap, roll=0.0,
                                      transit=False)

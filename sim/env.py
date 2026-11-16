@@ -21,10 +21,15 @@ ARM_DOF = 5
 
 class DinnerTableEnv:
     def __init__(self, seed: int = 0, randomize: bool = True, img_hw=(96, 128),
-                 cameras=("overhead", "front"), render_video: bool = False, grasp: str = "assist", scene: str = "legacy"):
+                 cameras=("overhead", "front"), render_video: bool = False, grasp: str = "assist", scene: str = "legacy",
+                 msaa: bool = True):
         self.img_hw, self.cameras = img_hw, cameras
         self.grasp = grasp                # "assist": weld on close; "contact": friction only
         self.scene = "v2" if grasp == "contact" else scene   # contact grasps need the v2 objects
+        # Multisampled shadow edges are not bit-reproducible between processes on this GPU (1 intensity level on
+        # up to 14 pixels of the front camera), which is enough to change a learned-policy episode. msaa=False
+        # renders reproducibly but shifts the images away from what the current policy was trained on.
+        self.msaa = msaa
         self.render_video = render_video
         self._renderer = None
         self._video_renderer = None
@@ -34,6 +39,8 @@ class DinnerTableEnv:
     def reset(self, seed: int = 0, randomize: bool = True):
         self.seed = seed
         self.model, self.info = build_scene(seed, randomize, self.grasp, self.scene)
+        if not self.msaa:
+            self.model.vis.quality.offsamples = 0
         self.data = mujoco.MjData(self.model)
         m = self.model
         self.qadr = {a: np.array([m.joint(f"{a}_{j}").qposadr[0] for j in ARM_JOINTS]) for a in ARMS}
@@ -334,8 +341,12 @@ class DinnerTableEnv:
         if obj == "plate":
             # rim on the far side (away from the robots) is inside the reachable workspace
             rr = self.info.params["plate_r"]
-            p[0] += rr * 0.75
-            p[2] += 0.004
+            if self.scene == "v2":      # the dish has a rim: close on the rim wall, not on the base inside it
+                p[0] += rr - CONTACT["rim_half"]
+                p[2] += CONTACT["rim_height"] + 0.004    # jaw tips stay above the base: no stored penetration
+            else:
+                p[0] += rr * 0.75
+                p[2] += 0.004
         elif obj == "mug":
             p = d.site("mug_handle").xpos.copy()
         elif obj == "bottle":
@@ -353,6 +364,8 @@ class DinnerTableEnv:
           dir     world xy direction the jaws must close along (None: any)
           signed  True if `dir` must point from the fixed finger to the moving finger
           open    gripper opening before the descent
+          descend_clear  (optional) gap kept between the part and the fixed pad while descending; the gripper
+                  shifts over to the usual 3 mm at the bottom. Needed where the arm cannot stay vertical.
         """
         d, m = self.data, self.model
         up = CONTACT["site_above_tip"]
@@ -370,11 +383,12 @@ class DinnerTableEnv:
             post = m.geom("mug_handle_post")
             pc = d.geom_xpos[post.id]
             return dict(point=np.array([pc[0], pc[1], pc[2] - float(post.size[2]) + 0.004 + up]),
-                        half=CONTACT["handle_half"], dir=R[:2, 1] / np.linalg.norm(R[:2, 1]), signed=False, open=0.6)
+                        half=CONTACT["handle_half"], dir=R[:2, 1] / np.linalg.norm(R[:2, 1]), signed=False, open=0.6,
+                        descend_clear=0.014)
         if obj == "plate":
             rr = self.info.params["plate_r"] - CONTACT["rim_half"]
             return dict(point=c + [rr, 0, half_h + 0.002 + up], half=CONTACT["rim_half"], dir=np.array([1.0, 0.0]),
-                        signed=False, open=0.5)
+                        signed=False, open=0.5, descend_clear=0.010)
         if obj in ("fork", "spoon"):
             ends = self.grasp_points(obj)
             p = ends[0] if point is None else min(ends, key=lambda e: np.linalg.norm(e - np.asarray(point)))

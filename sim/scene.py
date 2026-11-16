@@ -42,7 +42,10 @@ CONTACT = dict(
     pad_condim=6,
     pad_solref=(0.01, 1.0),
     pad_solimp=(0.95, 0.99, 0.001, 0.5, 2),
-    grip_force=1.2,                    # N*m torque limit of the gripper servo while squeezing (stall is 3.35)
+    # N*m torque limit of the gripper servo while squeezing. 3.35 is the stall limit of the stock model. Dev
+    # seeds 400-431, bottle placed: 1/32 at 0.6, 16/32 at 1.2, 25/32 at 2.5, 30/32 at 3.35. A real STS3215 cannot
+    # hold stall torque for long without overheating, so this is a sim-to-real item, not a free parameter.
+    grip_force=3.35,
     impratio=10.0,
     face_x=0.008,                      # inner pad face of each finger at jaw angle 0 (measured from the meshes)
     tip_z=-0.104,                      # fingertip end along the gripper z axis
@@ -50,6 +53,12 @@ CONTACT = dict(
     handle_half=0.004,                 # mug handle post half-thickness (collides in contact mode)
     rim_half=0.002, rim_height=0.016,  # dish rim wall of the plate
 )
+
+
+# Tuning sweeps can override entries without editing this file: BIMANUAL_CONTACT='{"grip_force": 0.8}'
+if os.environ.get("BIMANUAL_CONTACT"):
+    import json as _json
+    CONTACT.update(_json.loads(os.environ["BIMANUAL_CONTACT"]))
 
 
 def _add_contact_fingers(child):

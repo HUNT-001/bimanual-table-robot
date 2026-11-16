@@ -44,7 +44,8 @@ def _run_seed(kw):
     from planner.language import RuleParser
     from sim.env import DinnerTableEnv
     seed, instruction = kw["seed"], kw["instruction"]
-    env = DinnerTableEnv(seed, grasp=kw.get("grasp", "assist"), scene=kw.get("scene", "legacy"))
+    env = DinnerTableEnv(seed, grasp=kw.get("grasp", "assist"), scene=kw.get("scene", "legacy"),
+                         msaa=not kw.get("no_msaa"))
     if kw.get("no_shadows"):
         env.model.light_castshadow[:] = 0
     policy = None
@@ -104,6 +105,9 @@ def main():
     ap.add_argument("--video-every", type=int, default=2)
     ap.add_argument("--video-height", type=int, default=480)
     ap.add_argument("--no-shadows", action="store_true")
+    ap.add_argument("--no-msaa", action="store_true",
+                    help="render the policy cameras without multisampling: bit-reproducible, but not the images "
+                         "the current policy was trained on")
     ap.add_argument("--out", default="results/eval.json")
     a = ap.parse_args()
     if a.grasp == "contact" and a.scene == "legacy":
@@ -113,7 +117,8 @@ def main():
     jobs = [dict(seed=s, instruction=a.instruction, policy=a.policy, device=a.device, videos=a.videos,
                  policy_objects=a.policy_objects, grasp=a.grasp, scene=a.scene, threads=a.threads,
                  timeout_s=a.timeout or None, max_sim_steps=a.max_sim_steps or None,
-                 video_every=a.video_every, video_height=a.video_height, no_shadows=a.no_shadows) for s in seeds]
+                 video_every=a.video_every, video_height=a.video_height, no_shadows=a.no_shadows,
+                 no_msaa=a.no_msaa) for s in seeds]
     t0 = time.time()
     with ProcessPoolExecutor(a.workers) as pool:
         results = list(pool.map(run_seed, jobs))
@@ -124,7 +129,7 @@ def main():
     summary = dict(
         instruction=a.instruction, policy=a.policy or "scripted-expert", device=a.device, n=len(results),
         policy_objects=a.policy_objects if a.policy else None,
-        grasp=a.grasp, scene=a.scene, policy_threads=a.threads,
+        grasp=a.grasp, scene=a.scene, policy_threads=a.threads, msaa=not a.no_msaa,
         success_rate=n_ok / len(results),
         success_ci95=list(wilson(n_ok, len(results))),
         n_timed_out=n_timeout, n_errors=n_error, timeout_s=a.timeout, max_sim_steps=a.max_sim_steps,
