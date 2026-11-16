@@ -39,3 +39,53 @@ Added: `tests/` (101 passing, 4 strict expected failures), `tasks.py`, `scripts/
 
 Not done in this phase: `docs/images/subgoal_success.png` and the slide deck still show the old evaluation numbers;
 they are regenerated in Phase 8.
+
+## Phase 1 — physics realism (in progress, 2026-11-16)
+
+Artifacts in `results/phase1/`. Dev seeds 400–499 unless stated. Not finished: see the last list.
+
+**Scene versions.** `scene="v2"` holds the object changes a friction pinch needs (rimmed plate, colliding mug
+handle, cutlery 38 mm apart, 115 mm drawer); `grasp="contact"` only changes the gripper. Assist and contact are
+compared on v2 only; the original scene is `legacy`.
+
+**Per-object grasp trials, 100 dev seeds each** (`grasp_trials_dev.json`; pick, then carry with a shake, then
+place; k of 100 with Wilson 95 % interval for the final stage). Contact-grasp tuning used seeds 400–431, so
+these are tuned-on numbers; the test split is run once at the end of the phase.
+
+| Object | contact@v2 pick / carried / placed | assist@v2 pick / carried / placed | assist@legacy placed (reference only) |
+|---|---|---|---|
+| Plate | 100 / 100 / 98 (93–99 %) | 100 / 100 / 100 (96–100 %) | 100 |
+| Bottle | 98 / 93 / 86 (78–91 %) | 91 / 91 / 89 (81–94 %) | 87 |
+| Mug | 99 / 99 / 99 (95–100 %) | 100 / 100 / 100 (96–100 %) | 100 |
+| Spoon | 100 / 90 / 89 (81–94 %) | 77 / 77 / 76 (67–83 %) | 96 |
+| Fork | 62 / 14 / 8 (4–15 %) | 100 / 100 / 100 (96–100 %) | 97 |
+
+- Fork friction grasps are a documented limitation: 62 picked, 14 survived the carry. Not tuned further.
+- The bottle is held, but it slides in the pinch until the pads reach its cap (seed 400: it follows 26 mm of a
+  70 mm lift). Pinching the cap directly picked only 4/32, so the body grasp stays; pinned as an expected failure
+  in `tests/test_contact.py`. The trial script now records lift shortfall; this file predates that field.
+- Contact mode squeezes at the stock servo stall limit, 3.35 N·m. On seeds 400–431 the bottle was placed 1/32 at
+  0.6, 16/32 at 1.2, 25/32 at 2.5 and 30/32 at 3.35 (scratch sweeps, not committed). A real STS3215 cannot hold
+  stall torque for long.
+- Assist on v2 is weaker than on legacy for the spoon (76 vs 96): the assist skills were given v2 values for the
+  drawer pull and plate grasp only.
+
+**Scripted expert, full task, weld assist, legacy scene:** 77/100 on dev (68–84 %), `eval_expert_assist_dev.json`.
+The `wall_s` values in that file include time the laptop spent asleep.
+
+**Learned-policy nondeterminism: source found** (`determinism_*.json`, `scripts/policy_determinism.py`).
+Inference and physics are bit-exact. With identical simulator state the front camera differs by 1 intensity level
+on at most 14 of 12,288 pixels, at multisampled shadow edges: 13 of 18 run pairs diverged with default rendering,
+0 of 28 with shadows off, 0 of 28 with multisampling off. `--no-msaa` renders reproducibly but is not what the
+current policy was trained on; its effect on success is not measured yet.
+
+**Learned policy on dev, INT8 on iGPU, plate+mug picks:** one run of 100 so far, 34/100 (25–44 %),
+`policy_dev/eval_policy_int8_plate-mug_dev_r1.json`. This is one run, not the required mean of three; the other
+runs were stopped when the machine ran out of memory.
+
+**Evaluation robustness.** Per-episode wall-clock budget (suspended time not charged) and simulated-step cap;
+episodes that raise are recorded and counted instead of aborting the run.
+
+Not done yet in this phase: learned-policy runs 2–3 and the two `--no-msaa` runs; full-task expert with contact
+grasps on v2; actuator and sensor realism; the randomization config file; the particle pour check; the test-split
+grasp trials.
