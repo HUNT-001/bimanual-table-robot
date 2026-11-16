@@ -1,0 +1,70 @@
+{
+ "seed": 4,
+ "device": "CPU",
+ "threads": null,
+ "concurrent": true,
+ "comparisons": [
+  {
+   "run": 1,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 2,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 3,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 4,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 5,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 6,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 7,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  }
+ ],
+ "success": [
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false
+ ],
+ "n_calls": [
+  35,
+  35,
+  35,
+  35,
+  35,
+  35,
+  35,
+  35
+ ]
+}
