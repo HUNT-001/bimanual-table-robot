@@ -23,8 +23,11 @@ ARM_DOF = 5
 class DinnerTableEnv:
     def __init__(self, seed: int = 0, randomize: bool = True, img_hw=(96, 128),
                  cameras=("overhead", "front"), render_video: bool = False, grasp: str = "assist", scene: str = "legacy",
-                 msaa: bool = True, assist_objects=()):
+                 msaa: bool = True, assist_objects=(), realism="none"):
         self.img_hw, self.cameras = img_hw, cameras
+        # Actuator/sensor realism profile from sim/config.yaml ("none" = idealised simulator). See docs/sim_realism.md.
+        self.realism = realism if isinstance(realism, str) else "custom"
+        self.rl = realism_profile(realism)
         # Contact mode only: objects that keep the weld assist because a friction grasp of them does not work
         # (the fork). Results with a non-empty list are a hybrid and must be labelled as such.
         self.assist_objects = tuple(assist_objects) if grasp == "contact" else ()
@@ -45,6 +48,7 @@ class DinnerTableEnv:
         self.model, self.info = build_scene(seed, randomize, self.grasp, self.scene)
         if not self.msaa:
             self.model.vis.quality.offsamples = 0
+        self._init_realism(seed)
         self.data = mujoco.MjData(self.model)
         m = self.model
         self.qadr = {a: np.array([m.joint(f"{a}_{j}").qposadr[0] for j in ARM_JOINTS]) for a in ARMS}
@@ -76,6 +80,8 @@ class DinnerTableEnv:
     # --------------------------------------------------------------- stepping
     def step(self, ctrl: np.ndarray):
         """ctrl: 12-vector [armA(6), armB(6)] absolute joint targets."""
+        if self.rl:
+            ctrl = self._actuate(np.asarray(ctrl, float))
         for i, a in enumerate(ARMS):
             c = ctrl[6 * i: 6 * i + 6]
             self.data.ctrl[self.act[a]] = c
@@ -85,6 +91,51 @@ class DinnerTableEnv:
         self._update_pour()
         self.t += 1
         return self.observe()
+
+    # ---------------------------------------------------------------- realism
+    def _init_realism(self, seed):
+        """Per-episode draws of the realism profile (own RNG, so the scene randomization is untouched)."""
+        rl = self.rl
+        self._rl_rng = np.random.default_rng([seed, 7919])
+        self._ctrl_queue, self._sent, self._eff = [], None, None
+        self._latency = int(self._rl_rng.integers(rl["latency_steps"][0], rl["latency_steps"][1] + 1)) \
+            if rl.get("latency_steps") else 0
+        self._exposure = float(self._rl_rng.uniform(*rl["camera_exposure"])) if rl.get("camera_exposure") else 1.0
+        self.info.params.update(realism=self.realism, latency_steps=self._latency, exposure=self._exposure)
+        mm, deg = rl.get("camera_jitter_mm", 0.0), rl.get("camera_jitter_deg", 0.0)
+        if mm or deg:
+            for cam in self.cameras:
+                cid = self.model.camera(cam).id
+                self.model.cam_pos[cid] += self._rl_rng.uniform(-mm, mm, 3) / 1000.0
+                rot = np.radians(self._rl_rng.uniform(-deg, deg, 3))
+                ang = float(np.linalg.norm(rot))
+                if ang > 0:
+                    dq, q = np.zeros(4), np.zeros(4)
+                    mujoco.mju_axisAngle2Quat(dq, rot / ang, ang)
+                    mujoco.mju_mulQuat(q, self.model.cam_quat[cid], dq)
+                    self.model.cam_quat[cid] = q
+
+    def _actuate(self, ctrl):
+        """What the servos actually track: delayed, slew-limited, dead-banded targets with gear backlash."""
+        rl = self.rl
+        if self._sent is None:
+            self._sent, self._eff = ctrl.copy(), ctrl.copy()
+        self._ctrl_queue.append(ctrl.copy())
+        if len(self._ctrl_queue) > self._latency + 1:
+            self._ctrl_queue.pop(0)
+        target = self._ctrl_queue[0]                                 # the command issued `latency` steps ago
+        if rl.get("deadband"):
+            target = np.where(np.abs(target - self._sent) < rl["deadband"], self._sent, target)
+        if rl.get("velocity_limit"):
+            dmax = rl["velocity_limit"] / CONTROL_HZ
+            target = self._sent + np.clip(target - self._sent, -dmax, dmax)
+        self._sent = target
+        if rl.get("backlash"):
+            half = rl["backlash"] / 2
+            self._eff = np.clip(self._eff, target - half, target + half)   # output only moves once the play is taken up
+        else:
+            self._eff = target
+        return self._eff
 
     def _update_grasp(self, arm: str, grip_cmd: float):
         """Grasp assist: when the gripper closes on an object inside the jaws, weld it.
@@ -426,7 +477,10 @@ class DinnerTableEnv:
         return {o: self.data.body(o).xpos.copy() for o in OBJECTS}
 
     def proprio(self):
-        return np.concatenate([self.arm_q(a) for a in ARMS]).astype(np.float32)
+        q = np.concatenate([self.arm_q(a) for a in ARMS])
+        if self.rl.get("joint_noise_std"):
+            q = q + self._rl_rng.normal(0.0, self.rl["joint_noise_std"], q.shape)
+        return q.astype(np.float32)
 
     def images(self):
         if self._renderer is None:
@@ -434,8 +488,20 @@ class DinnerTableEnv:
         out = {}
         for c in self.cameras:
             self._renderer.update_scene(self.data, c)
-            out[c] = self._renderer.render().copy()
+            out[c] = self._camera_effects(self._renderer.render().copy())
         return out
+
+    def _camera_effects(self, img):
+        rl = self.rl
+        if not (rl.get("camera_noise_std") or rl.get("camera_blur_prob") or self._exposure != 1.0):
+            return img
+        x = img.astype(np.float32) * self._exposure
+        if rl.get("camera_blur_prob") and self._rl_rng.random() < rl["camera_blur_prob"]:
+            p = np.pad(x, ((1, 1), (1, 1), (0, 0)), mode="edge")
+            x = sum(p[i:i + x.shape[0], j:j + x.shape[1]] for i in range(3) for j in range(3)) / 9.0
+        if rl.get("camera_noise_std"):
+            x = x + self._rl_rng.normal(0.0, rl["camera_noise_std"], x.shape)
+        return np.clip(np.rint(x), 0, 255).astype(np.uint8)
 
     def render_frame(self, cam="demo", hw=(480, 640)):
         if not isinstance(self._video_renderer, dict):

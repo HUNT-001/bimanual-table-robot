@@ -45,7 +45,8 @@ def _run_seed(kw):
     from sim.env import DinnerTableEnv
     seed, instruction = kw["seed"], kw["instruction"]
     env = DinnerTableEnv(seed, grasp=kw.get("grasp", "assist"), scene=kw.get("scene", "legacy"),
-                         msaa=not kw.get("no_msaa"), assist_objects=kw.get("assist_objects") or ())
+                         msaa=not kw.get("no_msaa"), assist_objects=kw.get("assist_objects") or (),
+                         realism=kw.get("realism", "none"))
     if kw.get("no_shadows"):
         env.model.light_castshadow[:] = 0
     policy = None
@@ -98,6 +99,8 @@ def main():
                     help="legacy: first-submission objects; v2: rimmed plate, colliding handle, wider cutlery")
     ap.add_argument("--assist-objects", default="",
                     help="with --grasp contact: comma list of objects that keep the weld assist (hybrid; e.g. fork)")
+    ap.add_argument("--realism", default="none",
+                    help="actuator/sensor realism profile from sim/config.yaml (none | nominal)")
     ap.add_argument("--timeout", type=float, default=1200.0,
                     help="wall-clock seconds of active time per episode; suspended time is not counted (0 = none)")
     ap.add_argument("--max-sim-steps", type=int, default=12000,
@@ -121,7 +124,7 @@ def main():
                  policy_objects=a.policy_objects, grasp=a.grasp, scene=a.scene, threads=a.threads,
                  timeout_s=a.timeout or None, max_sim_steps=a.max_sim_steps or None,
                  video_every=a.video_every, video_height=a.video_height, no_shadows=a.no_shadows,
-                 no_msaa=a.no_msaa, assist_objects=assist) for s in seeds]
+                 no_msaa=a.no_msaa, assist_objects=assist, realism=a.realism) for s in seeds]
     t0 = time.time()
     with ProcessPoolExecutor(a.workers) as pool:
         results = list(pool.map(run_seed, jobs))
@@ -133,6 +136,7 @@ def main():
         instruction=a.instruction, policy=a.policy or "scripted-expert", device=a.device, n=len(results),
         policy_objects=a.policy_objects if a.policy else None,
         grasp=a.grasp, scene=a.scene, policy_threads=a.threads, msaa=not a.no_msaa, assist_objects=list(assist),
+        realism=a.realism,
         success_rate=n_ok / len(results),
         success_ci95=list(wilson(n_ok, len(results))),
         n_timed_out=n_timeout, n_errors=n_error, timeout_s=a.timeout, max_sim_steps=a.max_sim_steps,

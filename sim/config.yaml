@@ -38,7 +38,8 @@ contact:
   pad_condim: 6
   pad_solref: [0.01, 1.0]
   pad_solimp: [0.95, 0.99, 0.001, 0.5, 2]
-  # N*m torque limit of the gripper servo while squeezing. 3.35 is the limit of the stock model. Dev seeds
+  # N*m torque limit of the gripper servo while squeezing. 3.35 is the limit of the stock model, which is above the
+  # published STS3215 stall torque (2.94 N*m at 12 V, 1.91 at 7.4 V; docs/sim_realism.md). Dev seeds
   # 400-431, bottle placed: 1/32 at 0.6, 16/32 at 1.2, 25/32 at 2.5, 30/32 at 3.35. A real STS3215 cannot hold
   # stall torque for long without overheating, so this is a sim-to-real item, not a free parameter.
   grip_force: 3.35
