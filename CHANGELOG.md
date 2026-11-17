@@ -123,6 +123,24 @@ and 17). Scripted expert, assist, legacy, dev: 76/100 (67–83 %) under `nominal
 (`realism/eval_expert_assist_legacy_nominal_dev.json`); 71 seeds succeed in both, 6 only without, 5 only with.
 The expert plans from true state, so it sees only the actuator effects.
 
+**Learned policy under `nominal`: the full-task number goes up while the policy gets worse.** INT8 on iGPU,
+`--no-msaa`, dev (`realism/eval_policy_int8_plate-mug_nominal_nomsaa_dev.json`):
+
+| | No realism (`policy_dev/..._nomsaa_r1`) | `nominal` |
+|---|---|---|
+| Full-task success | 41/100 | 63/100 (53–72 %) |
+| Policy picks that succeed on the first attempt | 76 % of 200 | 49 % of 200 |
+| Successful mug picks finished by the scripted retry | 40 of 92 | 57 of 89 |
+
+- The policy only makes the first attempt (`planner/executor.py`, `attempts == 1`); retries are scripted. When
+  the policy fails more, the expert does more of the picking, and episodes after a scripted mug pick pour more
+  often. Full-task success with the policy is therefore not a measure of the policy. From here on, policy
+  comparisons report first-attempt pick success alongside full-task success.
+- Attribution, on the 50 seeds whose outcome flips (`realism/split/`; profiles `actuators_only` and
+  `sensors_only`): full-task 14/50 with no realism, 20/50 with actuators only, 31/50 with sensors only, 36/50 with
+  both. First-attempt pick success 73 %, 73 %, 61 %, 48 %. The sensor effects (which reach only the policy) cause
+  most of the drop in the policy and most of the rise in the full task.
+
 **Secondary pour metric (ballistic droplets, `pour:` in the config).** No episode passes it in any run so far:
 the expert under `nominal` lands 0.14 % of droplets in the mug, and in a scratch run on seeds 0–9 the geometric
 check passed 10/10 while the droplet check passed 0/10 at every outflow from 0 to 0.3 m/s. The geometric check
