@@ -45,7 +45,7 @@ def _run_seed(kw):
     from sim.env import DinnerTableEnv
     seed, instruction = kw["seed"], kw["instruction"]
     env = DinnerTableEnv(seed, grasp=kw.get("grasp", "assist"), scene=kw.get("scene", "legacy"),
-                         msaa=not kw.get("no_msaa"))
+                         msaa=not kw.get("no_msaa"), assist_objects=kw.get("assist_objects") or ())
     if kw.get("no_shadows"):
         env.model.light_castshadow[:] = 0
     policy = None
@@ -96,6 +96,8 @@ def main():
                     help="assist: weld on close (default); contact: friction-only pinch (implies --scene v2)")
     ap.add_argument("--scene", choices=["legacy", "v2"], default="legacy",
                     help="legacy: first-submission objects; v2: rimmed plate, colliding handle, wider cutlery")
+    ap.add_argument("--assist-objects", default="",
+                    help="with --grasp contact: comma list of objects that keep the weld assist (hybrid; e.g. fork)")
     ap.add_argument("--timeout", type=float, default=1200.0,
                     help="wall-clock seconds of active time per episode; suspended time is not counted (0 = none)")
     ap.add_argument("--max-sim-steps", type=int, default=12000,
@@ -113,12 +115,13 @@ def main():
     if a.grasp == "contact" and a.scene == "legacy":
         print("note: --grasp contact needs the v2 scene; using --scene v2")
         a.scene = "v2"
+    assist = tuple(x for x in a.assist_objects.split(",") if x) if a.grasp == "contact" else ()
     seeds = parse_seeds(a.seeds)
     jobs = [dict(seed=s, instruction=a.instruction, policy=a.policy, device=a.device, videos=a.videos,
                  policy_objects=a.policy_objects, grasp=a.grasp, scene=a.scene, threads=a.threads,
                  timeout_s=a.timeout or None, max_sim_steps=a.max_sim_steps or None,
                  video_every=a.video_every, video_height=a.video_height, no_shadows=a.no_shadows,
-                 no_msaa=a.no_msaa) for s in seeds]
+                 no_msaa=a.no_msaa, assist_objects=assist) for s in seeds]
     t0 = time.time()
     with ProcessPoolExecutor(a.workers) as pool:
         results = list(pool.map(run_seed, jobs))
@@ -129,7 +132,7 @@ def main():
     summary = dict(
         instruction=a.instruction, policy=a.policy or "scripted-expert", device=a.device, n=len(results),
         policy_objects=a.policy_objects if a.policy else None,
-        grasp=a.grasp, scene=a.scene, policy_threads=a.threads, msaa=not a.no_msaa,
+        grasp=a.grasp, scene=a.scene, policy_threads=a.threads, msaa=not a.no_msaa, assist_objects=list(assist),
         success_rate=n_ok / len(results),
         success_ci95=list(wilson(n_ok, len(results))),
         n_timed_out=n_timeout, n_errors=n_error, timeout_s=a.timeout, max_sim_steps=a.max_sim_steps,
@@ -149,7 +152,7 @@ def main():
     with open(a.out, "w") as f:
         json.dump(dict(summary=summary, episodes=results), f, indent=1)
     # markdown table
-    tag = f"  [{a.grasp} grasp, {a.scene} scene]" if (a.grasp, a.scene) != ("assist", "legacy") else ""
+    tag = f"  [{a.grasp} grasp{' + weld assist for ' + ','.join(assist) if assist else ''}, {a.scene} scene]" if (a.grasp, a.scene) != ("assist", "legacy") else ""
     md = [f"# Evaluation: {summary['policy']}  ({summary['n']} seeds)"
           + (f"  - learned picks: {a.policy_objects}" if a.policy else "") + tag, "",
           f"**Task success: {summary['success_rate'] * 100:.0f}%** (95% CI {summary['success_ci95'][0] * 100:.0f}-"

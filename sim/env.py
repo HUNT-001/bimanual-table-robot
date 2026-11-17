@@ -22,8 +22,11 @@ ARM_DOF = 5
 class DinnerTableEnv:
     def __init__(self, seed: int = 0, randomize: bool = True, img_hw=(96, 128),
                  cameras=("overhead", "front"), render_video: bool = False, grasp: str = "assist", scene: str = "legacy",
-                 msaa: bool = True):
+                 msaa: bool = True, assist_objects=()):
         self.img_hw, self.cameras = img_hw, cameras
+        # Contact mode only: objects that keep the weld assist because a friction grasp of them does not work
+        # (the fork). Results with a non-empty list are a hybrid and must be labelled as such.
+        self.assist_objects = tuple(assist_objects) if grasp == "contact" else ()
         self.grasp = grasp                # "assist": weld on close; "contact": friction only
         self.scene = "v2" if grasp == "contact" else scene   # contact grasps need the v2 objects
         # Multisampled shadow edges are not bit-reproducible between processes on this GPU (1 intensity level on
@@ -91,8 +94,13 @@ class DinnerTableEnv:
         """
         m, d = self.model, self.data
         if self.grasp == "contact":
-            self.held[arm] = self._pinched(arm)
-            return
+            h = self.held[arm]
+            welded = h in self.assist_objects and bool(d.eq_active[self.eq[(arm, h)]])
+            if not welded and self.intent[arm] not in self.assist_objects:
+                self.held[arm] = self._pinched(arm)
+                return
+            if not welded:
+                self.held[arm] = None       # the weld logic below starts from an empty hand
         closing = grip_cmd < 0.35
         if not closing:
             if self.held[arm] is not None:

@@ -167,9 +167,10 @@ class SkillLibrary:
     def pick(self, arm, obj, grasp_point=None):
         env = self.env
         env.intent[arm] = obj
-        if env.grasp == "contact":
+        if env.grasp == "contact" and obj not in env.assist_objects:
             yield from self._contact_grasp(arm, obj, grasp_point)
             return
+        env.set_grasp_halfwidth(arm, 0.005)     # no-op outside contact mode
         p = env.grasp_point(obj) if grasp_point is None else np.asarray(grasp_point)
         env.intent[arm] = obj
         yield from self.gripper(arm, GRIP_OPEN, 4)
@@ -274,6 +275,9 @@ class SkillLibrary:
         free = lambda: max(env.grasp_points(obj), key=lambda p: np.linalg.norm(p - env.ee_pos(giver)))
         R = env.data.body(obj).xmat.reshape(3, 3)
         yaw = np.arctan2(R[1, 0], R[0, 0]) + np.pi / 2
+        if env.grasp == "contact":   # the box fingers open wide enough to knock the piece out of the giver's hand
+            env.set_grasp_halfwidth(receiver, 0.005)
+            yield from self.gripper(receiver, 0.45, 4)
         yield from self.move_pos(receiver, free() + [0, 0, 0.05], 30)
         q = self.cmd[receiver].copy(); q[4] = self._yaw_roll(receiver, yaw)
         yield from self.move(receiver, q[:5], 8)
