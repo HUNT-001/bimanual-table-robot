@@ -38,8 +38,8 @@ class SkillLibrary:
     def ctrl(self):
         return np.concatenate([self.cmd["A"], self.cmd["B"]])
 
-    def move(self, arm, q5, steps=25, grip=None):
-        if self.env.grasp == "contact" and self.env.held[arm] not in (None, "drawer")                 and self.env.held[arm] not in self.env.assist_objects:
+    def move(self, arm, q5, steps=25, grip=None, paced=True):
+        if paced and self.env.grasp == "contact" and self.env.held[arm] not in (None, "drawer")                 and self.env.held[arm] not in self.env.assist_objects:
             steps = int(np.ceil(steps * CARRY_SLOWDOWN))    # a friction hold cannot take the weld's accelerations
         q0 = self.cmd[arm].copy()
         q1 = q0.copy(); q1[:5] = q5

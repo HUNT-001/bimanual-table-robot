@@ -64,8 +64,8 @@ def run_trial(kw):
         q = S.cmd[arm][:5].copy()
         for k in range(4):
             dq = np.array([0.12, 0, 0, 0.10, 0]) * (1 if k % 2 == 0 else -1)
-            run(S.move(arm, q + dq, 5))
-        run(S.move(arm, q, 5))
+            run(S.move(arm, q + dq, 5, paced=False))     # the same shake for every grasp mode
+        run(S.move(arm, q, 5, paced=False))
         run(S.hold(10))
         out["transport"] = env.held[arm] == obj
         # how far the object moved inside the gripper during the carry (world-frame offset change)
