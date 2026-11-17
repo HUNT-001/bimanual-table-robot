@@ -10,7 +10,8 @@ if sys.platform.startswith("linux"):
 import mujoco
 import numpy as np
 
-from .scene import ARMS, ARM_JOINTS, CONTACT, OBJECTS, build_scene
+from .config import CONTACT, realism_profile
+from .scene import ARMS, ARM_JOINTS, OBJECTS, build_scene
 
 HOME = np.array([0.0, -0.72, 0.56, 1.5, 0.0, 0.0])  # retracted, gripper pointing down
 GRIP_OPEN, GRIP_CLOSED = 1.0, -0.05

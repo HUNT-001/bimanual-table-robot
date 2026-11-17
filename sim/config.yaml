@@ -1,0 +1,68 @@
+# Single source for simulation parameters: domain-randomization ranges, contact-grasp physics and realism profiles.
+# Loaded by sim/config.py. Ranges are [low, high], sampled uniformly per seed (the midpoint when randomize=False).
+# Changing a range changes every scene, so results from before and after are not comparable; record the commit.
+
+randomization:
+  # lighting and background
+  sky_rgb: [0.1, 0.7]
+  floor_rgb: [0.1, 0.5]
+  table_rgb: [[0.45, 0.75], [0.3, 0.5], [0.15, 0.3]]
+  light_intensity: [0.4, 0.9]
+  light_xy: [-0.6, 0.6]            # m, key-light position
+  # friction (sliding coefficient)
+  table_friction: [0.6, 1.2]
+  object_friction: [0.7, 1.3]
+  # start positions, m (x away from the robots, y to arm A's side)
+  plate_xy: [[0.14, 0.18], [0.16, 0.21]]
+  bottle_xy: [[0.21, 0.24], [0.24, 0.29]]
+  mug_xy: [[0.16, 0.21], [-0.23, -0.15]]
+  mug_yaw: [-0.5, 0.5]             # rad, around the handle pointing at arm B
+  cutlery_dx: [-0.003, 0.003]      # m, inside the drawer
+  cutlery_y: [-0.015, 0.015]
+  cutlery_yaw: [-0.1, 0.1]
+  # size (scale factors on the nominal dimensions) and mass, kg
+  plate_scale: [0.85, 1.15]
+  plate_mass: [0.05, 0.15]
+  mug_radius_scale: [0.9, 1.1]
+  mug_height_scale: [0.9, 1.15]
+  mug_mass: [0.03, 0.12]
+  bottle_radius_scale: [0.9, 1.1]
+  bottle_height_scale: [0.9, 1.1]
+  bottle_mass: [0.04, 0.10]
+  bottle_green: [0.5, 0.9]
+  cutlery_mass: [0.01, 0.03]
+
+# Friction-grasp physics, used only with grasp="contact". Lengths in metres, gripper/jaw body frames.
+contact:
+  pad_friction: [1.6, 0.03, 0.002]   # sliding, torsional, rolling: a soft rubber pad as a patch contact
+  pad_condim: 6
+  pad_solref: [0.01, 1.0]
+  pad_solimp: [0.95, 0.99, 0.001, 0.5, 2]
+  # N*m torque limit of the gripper servo while squeezing. 3.35 is the limit of the stock model. Dev seeds
+  # 400-431, bottle placed: 1/32 at 0.6, 16/32 at 1.2, 25/32 at 2.5, 30/32 at 3.35. A real STS3215 cannot hold
+  # stall torque for long without overheating, so this is a sim-to-real item, not a free parameter.
+  grip_force: 3.35
+  impratio: 10.0
+  face_x: 0.008            # inner pad face of each finger at jaw angle 0 (measured from the meshes)
+  tip_z: -0.104            # fingertip end along the gripper z axis
+  site_above_tip: 0.010    # the grasp site sits this far above the fingertips, on the pad
+  handle_half: 0.004       # mug handle post half-thickness (collides in v2)
+  rim_half: 0.002          # dish rim wall of the v2 plate
+  rim_height: 0.016
+
+# Actuator and sensor realism. "none" reproduces the idealised simulator and is the default.
+# Sources and how each effect is modelled: docs/sim_realism.md. Values marked (assumed) are not identified
+# against hardware.
+realism:
+  none: {}
+  nominal:
+    latency_steps: [1, 3]          # control latency in 50 ms control steps, drawn once per episode
+    velocity_limit: 4.7            # rad/s commanded-target slew limit
+    deadband: 0.0015               # rad; target changes smaller than this are not sent
+    backlash: 0.0087               # rad (0.5 deg) play when the commanded direction reverses
+    joint_noise_std: 0.002         # rad, on the joint readings returned to the policy
+    camera_noise_std: 2.0          # intensity levels (0-255), per pixel
+    camera_blur_prob: 0.2          # chance per frame of a 3x3 box blur
+    camera_exposure: [0.9, 1.1]    # gain, drawn once per episode
+    camera_jitter_mm: 5.0          # extrinsic position offset bound per axis, drawn once per episode
+    camera_jitter_deg: 2.0         # extrinsic rotation bound per axis, drawn once per episode
