@@ -28,8 +28,8 @@ def _version(mod):
 def code_revision():
     """Commit and modified tracked files at the moment a run starts, stored in every results file."""
     return dict(commit=_run(["git", "rev-parse", "--short", "HEAD"]),
-                modified=[ln[3:] for ln in _run(["git", "status", "--porcelain", "--untracked-files=no"]).splitlines()
-                          if ln])
+                modified=[ln.split(None, 1)[1] for ln in _run(["git", "status", "--porcelain", "--untracked-files=no"]).splitlines()
+                          if ln.strip()])
 
 
 def collect():
