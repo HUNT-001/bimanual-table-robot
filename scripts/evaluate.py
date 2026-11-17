@@ -102,7 +102,7 @@ def main():
     ap.add_argument("--assist-objects", default="",
                     help="with --grasp contact: comma list of objects that keep the weld assist (hybrid; e.g. fork)")
     ap.add_argument("--realism", default="none",
-                    help="actuator/sensor realism profile from sim/config.yaml (none | nominal)")
+                    help="actuator/sensor realism profile from sim/config.yaml (none | nominal | actuators_only | sensors_only)")
     ap.add_argument("--timeout", type=float, default=1200.0,
                     help="wall-clock seconds of active time per episode; suspended time is not counted (0 = none)")
     ap.add_argument("--max-sim-steps", type=int, default=12000,

@@ -119,3 +119,8 @@ def test_droplet_pour_metric_is_bookkeeping_only():
         e.step(CTRL)
     assert e.pour_emitted == 0, "an upright bottle must not emit droplets"
     e.close()
+
+
+def test_split_profiles_partition_nominal():
+    a, s, n = realism_profile("actuators_only"), realism_profile("sensors_only"), realism_profile("nominal")
+    assert not set(a) & set(s) and {**a, **s} == n

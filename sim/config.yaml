@@ -75,3 +75,16 @@ realism:
     camera_exposure: [0.9, 1.1]    # gain, drawn once per episode
     camera_jitter_mm: 5.0          # extrinsic position offset bound per axis, drawn once per episode
     camera_jitter_deg: 2.0         # extrinsic rotation bound per axis, drawn once per episode
+  # The two halves of `nominal`, for attributing an effect to the actuators or to the sensors.
+  actuators_only:
+    latency_steps: [1, 3]
+    velocity_limit: 4.7
+    deadband: 0.0015
+    backlash: 0.0087
+  sensors_only:
+    joint_noise_std: 0.002
+    camera_noise_std: 2.0
+    camera_blur_prob: 0.2
+    camera_exposure: [0.9, 1.1]
+    camera_jitter_mm: 5.0
+    camera_jitter_deg: 2.0
