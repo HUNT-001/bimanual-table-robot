@@ -79,13 +79,25 @@ on at most 14 of 12,288 pixels, at multisampled shadow edges: 13 of 18 run pairs
 0 of 28 with shadows off, 0 of 28 with multisampling off. `--no-msaa` renders reproducibly but is not what the
 current policy was trained on; its effect on success is not measured yet.
 
-**Learned policy on dev, INT8 on iGPU, plate+mug picks:** one run of 100 so far, 34/100 (25–44 %),
-`policy_dev/eval_policy_int8_plate-mug_dev_r1.json`. This is one run, not the required mean of three; the other
-runs were stopped when the machine ran out of memory.
+**Learned policy on dev, ACT-Lite INT8 on iGPU, learned plate+mug picks** (`policy_dev/summary_*.md`, produced by
+`scripts/policy_runs_report.py`; intervals are a cluster bootstrap over seeds):
+
+| Rendering | Runs x seeds | Full-task success | Per run | Episodes identical in every run |
+|---|---|---|---|---|
+| Default (multisampled) | 3 x 100 | 35.3 % (27.0-43.7) | 34, 34, 38 | 24/100 |
+| `--no-msaa` | 2 x 100 | 41.0 % (31.0-50.0) | 41, 41 | 100/100 |
+
+- This replaces "5/10" as the learned-policy baseline. The scripted expert scores 77/100 on the same seeds.
+- `--no-msaa` makes the evaluation exactly repeatable. Its difference from default rendering is +5.7 points
+  (95 % CI -2.7 to +14.3, paired bootstrap over seeds): no detectable shift, even though the policy was trained
+  on multisampled images.
+- Weakest sub-goals (default rendering, mean of runs): bottle put-back 58 %, poured 63 %, mug placed 78 %. The
+  learned picks succeed on the first attempt 75 % of the time.
+- One episode per run hit the simulated-step cap (seed 434 in run 3) and is counted as a failure.
 
 **Evaluation robustness.** Per-episode wall-clock budget (suspended time not charged) and simulated-step cap;
 episodes that raise are recorded and counted instead of aborting the run.
 
-Not done yet in this phase: learned-policy runs 2–3 and the two `--no-msaa` runs; full-task expert with contact
+Not done yet in this phase: full-task expert with contact
 grasps on v2; actuator and sensor realism; the randomization config file; the particle pour check; the test-split
 grasp trials.
