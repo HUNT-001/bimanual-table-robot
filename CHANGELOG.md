@@ -40,9 +40,9 @@ Added: `tests/` (101 passing, 4 strict expected failures), `tasks.py`, `scripts/
 Not done in this phase: `docs/images/subgoal_success.png` and the slide deck still show the old evaluation numbers;
 they are regenerated in Phase 8.
 
-## Phase 1 — physics realism (in progress, 2026-11-16)
+## Phase 1 — physics realism (2026-11-16 to 2026-11-17)
 
-Artifacts in `results/phase1/`. Dev seeds 400–499 unless stated. Not finished: see the last list.
+Artifacts in `results/phase1/`. Dev seeds 400–499 unless stated.
 
 **Scene versions.** `scene="v2"` holds the object changes a friction pinch needs (rimmed plate, colliding mug
 handle, cutlery 38 mm apart, 115 mm drawer); `grasp="contact"` only changes the gripper. Assist and contact are
@@ -164,6 +164,23 @@ identical shake for all modes). Placed out of 100, with Wilson 95 % interval; de
 **Evaluation robustness.** Per-episode wall-clock budget (suspended time not charged) and simulated-step cap;
 episodes that raise are recorded and counted instead of aborting the run.
 
-Not done yet in this phase: full-task expert with contact
-grasps on v2; actuator and sensor realism; the randomization config file; the particle pour check; the test-split
-grasp trials.
+**Scripted expert, full task, v2 scene, test split 1000–1099, run once** (`test_split/eval_expert_*_test.json`;
+0 timeouts, 0 errors; dev in brackets):
+
+| Grasp | Success | Main failure causes (episodes) |
+|---|---|---|
+| Weld assist | 66/100 (56–75 %) [65] | spoon pick 14, bottle put-back 12, pour 4 |
+| Contact, fork on weld assist | 65/100 (55–74 %) [65] | pour 9, plate place 9, spoon pick 6, plate re-pick 4 |
+| Contact (friction only) | 9/100 (5–16 %) [11] | fork pick 58, fork hand-over 10, plate place 9 |
+
+**Phase 1 closing summary**
+- Exit criteria met: per-object grasp trials with 100 seeds each, both modes on identical scenes, Wilson
+  intervals, dev and test; scripted expert with contact grasps on the test split.
+- Contact grasps hold the plate, mug and bottle; cutlery does not survive a shake and the fork pick fails in the
+  full task (documented limitation). With only the fork on the weld assist, contact matches full assist (65 vs 66
+  on test).
+- Defaults are unchanged (`assist`, `legacy`, realism `none`), so the existing demos and baselines still apply;
+  the brief's re-collection is not needed for these defaults.
+- Open items: bottle placing in contact mode (68–69 %); spoon pick with assist on v2 (76–80 %); pour passes the
+  geometric check but not the droplet check; STS3215 torque limit in the model above the datasheet stall torque;
+  policy evaluation should report first-attempt pick success.
