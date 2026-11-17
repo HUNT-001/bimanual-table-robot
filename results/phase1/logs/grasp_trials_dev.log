@@ -1,9 +1,9 @@
 grasp@scene    object     n               pick       no slip/drop              place
-contact@v2     plate    100     100 [ 96-100%]     100 [ 96-100%]      98 [ 93- 99%]
-contact@v2     bottle   100      98 [ 93- 99%]      93 [ 86- 97%]      86 [ 78- 91%]
+contact@v2     plate    100     100 [ 96-100%]     100 [ 96-100%]     100 [ 96-100%]
+contact@v2     bottle   100     100 [ 96-100%]     100 [ 96-100%]      71 [ 61- 79%]
 contact@v2     mug      100      99 [ 95-100%]      99 [ 95-100%]      99 [ 95-100%]
-contact@v2     spoon    100     100 [ 96-100%]      90 [ 83- 94%]      89 [ 81- 94%]
-contact@v2     fork     100      62 [ 52- 71%]      14 [  9- 22%]       8 [  4- 15%]
+contact@v2     spoon    100     100 [ 96-100%]       2 [  1-  7%]       0 [  0-  4%]
+contact@v2     fork     100      55 [ 45- 64%]       0 [  0-  4%]       0 [  0-  4%]
 assist@v2      plate    100     100 [ 96-100%]     100 [ 96-100%]     100 [ 96-100%]
 assist@v2      bottle   100      91 [ 84- 95%]      91 [ 84- 95%]      89 [ 81- 94%]
 assist@v2      mug      100     100 [ 96-100%]     100 [ 96-100%]     100 [ 96-100%]
@@ -14,4 +14,4 @@ assist@legacy  bottle   100      95 [ 89- 98%]      95 [ 89- 98%]      87 [ 79- 
 assist@legacy  mug      100     100 [ 96-100%]     100 [ 96-100%]     100 [ 96-100%]
 assist@legacy  spoon    100      96 [ 90- 98%]      96 [ 90- 98%]      96 [ 90- 98%]
 assist@legacy  fork     100      97 [ 92- 99%]      97 [ 92- 99%]      97 [ 92- 99%]
-wrote results/phase1/grasp_trials_dev.json (10868 s)
+wrote results/phase1/grasp_trials_dev.json (4735 s)
