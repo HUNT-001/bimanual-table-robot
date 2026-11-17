@@ -93,7 +93,8 @@ current policy was trained on; its effect on success is not measured yet.
   on multisampled images.
 - Weakest sub-goals (default rendering, mean of runs): bottle put-back 58 %, poured 63 %, mug placed 78 %. The
   learned picks succeed on the first attempt 75 % of the time.
-- One episode per run hit the simulated-step cap (seed 434 in run 3) and is counted as a failure.
+- Episodes that hit the simulated-step cap are counted as failures: one in default run 3 (seed 434) and one in
+  each `--no-msaa` run; none in default runs 1 and 2.
 
 **Evaluation robustness.** Per-episode wall-clock budget (suspended time not charged) and simulated-step cap;
 episodes that raise are recorded and counted instead of aborting the run.
