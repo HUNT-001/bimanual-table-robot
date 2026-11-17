@@ -124,3 +124,44 @@ def test_droplet_pour_metric_is_bookkeeping_only():
 def test_split_profiles_partition_nominal():
     a, s, n = realism_profile("actuators_only"), realism_profile("sensors_only"), realism_profile("nominal")
     assert not set(a) & set(s) and {**a, **s} == n
+
+
+def _pose_bottle_over_mug(e, offset):
+    """Bottle on its side (axis horizontal, spout toward +x), spout `offset` m from the mug axis, 5 cm above the rim."""
+    m = e.model
+    qa = m.jnt_qposadr[m.body("bottle").jntadr[0]]
+    # rotate +90 deg about y: the bottle's +z axis (towards the spout) points along +x
+    e.data.qpos[qa + 3:qa + 7] = [np.cos(np.pi / 4), 0, np.sin(np.pi / 4), 0]
+    mujoco_forward(e)
+    spout_rel = e.data.site("bottle_spout").xpos - e.data.body("bottle").xpos
+    top = e.data.site("mug_top").xpos
+    e.data.qpos[qa:qa + 3] = top + [offset, 0, 0.05] - spout_rel
+    mujoco_forward(e)
+
+
+def mujoco_forward(e):
+    import mujoco
+    mujoco.mj_forward(e.model, e.data)
+
+
+@pytest.mark.parametrize("offset,expected", [(0.010, True), (0.030, False)])
+def test_geometric_pour_check_needs_the_spout_inside_the_mug_radius(offset, expected):
+    e = DinnerTableEnv(1)
+    inner = e.mug_inner_radius()
+    assert 0.010 < inner < 0.030                          # the two offsets straddle the inner radius
+    _pose_bottle_over_mug(e, offset)
+    for _ in range(25):                                   # 1.25 s of the pose, counted by the check
+        e._update_pour()
+    assert e.check("poured") is expected
+    e.close()
+
+
+def test_legacy_pour_check_accepts_the_wider_tolerance(monkeypatch):
+    import sim.env as env_mod
+    monkeypatch.setattr(env_mod, "POUR_SPOUT_RADIUS", "legacy_4cm")
+    e = DinnerTableEnv(1)
+    _pose_bottle_over_mug(e, 0.030)
+    for _ in range(25):
+        e._update_pour()
+    assert e.check("poured")
+    e.close()

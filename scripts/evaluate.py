@@ -63,6 +63,13 @@ def _run_seed(kw):
                   policy_objects="all" if po == "all" else tuple(po.split(",")),
                   timeout_s=kw.get("timeout_s"), max_sim_steps=kw.get("max_sim_steps"))
     plan = RuleParser().parse(instruction)
+    if kw.get("stop_after_policy"):
+        # picks-only evaluation: end the episode after the last step the learned policy attempts. The task is then
+        # incomplete by construction, so only the first-attempt rates of the learned steps mean anything.
+        last = [i for i, s in enumerate(plan)
+                if s["skill"] in ex.policy_skills and (ex.policy_objects is None or s.get("obj") in ex.policy_objects)]
+        if last:
+            plan = plan[:last[-1] + 1]
     res = ex.run(plan, instruction)
     if vw:
         vw.finish(env, res)
@@ -73,6 +80,7 @@ def _run_seed(kw):
                timed_out=res.timed_out, error=None,
                pour_particles=dict(emitted=int(env.pour_emitted), captured=int(env.pour_captured),
                                    ok=env.check("poured_particles")),
+               success_strict=bool(res.success and env.check("poured_particles")),
                retries=sum(s.attempts - 1 for s in res.steps),
                policy_latency_ms=res.policy_latency_ms,
                randomization=dict(light=round(p["light_intensity"], 2), table_mu=round(p["table_friction"], 2),
@@ -115,6 +123,9 @@ def main():
     ap.add_argument("--no-msaa", action="store_true",
                     help="render the policy cameras without multisampling: bit-reproducible, but not the images "
                          "the current policy was trained on")
+    ap.add_argument("--stop-after-policy", action="store_true",
+                    help="end each episode after the last learned-policy step (picks-only; task success is then "
+                         "meaningless, read policy_first_try_by_object)")
     ap.add_argument("--out", default="results/eval.json")
     a = ap.parse_args()
     if a.grasp == "contact" and a.scene == "legacy":
@@ -126,7 +137,8 @@ def main():
                  policy_objects=a.policy_objects, grasp=a.grasp, scene=a.scene, threads=a.threads,
                  timeout_s=a.timeout or None, max_sim_steps=a.max_sim_steps or None,
                  video_every=a.video_every, video_height=a.video_height, no_shadows=a.no_shadows,
-                 no_msaa=a.no_msaa, assist_objects=assist, realism=a.realism) for s in seeds]
+                 no_msaa=a.no_msaa, assist_objects=assist, realism=a.realism,
+                 stop_after_policy=a.stop_after_policy) for s in seeds]
     from scripts.env_info import code_revision
     code = code_revision()
     t0 = time.time()
@@ -149,12 +161,17 @@ def main():
         mean_sim_time_s=sum(r["sim_time_s"] for r in results) / len(results),
         wall_total_s=round(time.time() - t0),
     )
-    # stricter secondary pour metric (ballistic droplets); not part of the success definition
+    # strict metric: the whole task succeeded AND the droplet pour check passed (the sub-goal check is geometric)
     pp = [r["pour_particles"] for r in results if r.get("pour_particles")]
     if pp:
         k = sum(p["ok"] for p in pp)
         summary["poured_particles_rate"] = k / len(results)
         summary["poured_particles_ci95"] = list(wilson(k, len(results)))
+        ks = sum(bool(r.get("success_strict")) for r in results)
+        summary["success_strict_rate"] = ks / len(results)
+        summary["success_strict_ci95"] = list(wilson(ks, len(results)))
+        from sim.env import POUR_OUTFLOW, POUR_SPOUT_RADIUS
+        summary["pour_check"] = dict(spout_radius=POUR_SPOUT_RADIUS, outflow_m_s=POUR_OUTFLOW)
         em = sum(p["emitted"] for p in pp)
         summary["droplets_captured_fraction"] = sum(p["captured"] for p in pp) / em if em else None
     pol = [st for r in results for st in r["steps"] if st["executor"] == "policy"]
@@ -162,6 +179,15 @@ def main():
         # a learned step only counts as a policy success if it worked on the first attempt (no expert fallback)
         summary["policy_steps"] = len(pol)
         summary["policy_first_try_success"] = sum(st["ok"] and st["attempts"] == 1 for st in pol) / len(pol)
+        by = {}
+        for r in results:
+            for st in r["steps"]:
+                if st["executor"] == "policy":
+                    k, n = by.get(st["text"].split()[-1], (0, 0))
+                    by[st["text"].split()[-1]] = (k + (st["ok"] and st["attempts"] == 1), n + 1)
+        summary["policy_first_try_by_object"] = {o: dict(k=int(k), n=n, rate=k / n, ci95=list(wilson(int(k), n)))
+                                                 for o, (k, n) in sorted(by.items())}
+        summary["plan_truncated"] = bool(a.stop_after_policy)
         lat = [x for r in results for x in r["policy_latency_ms"]]
         summary["policy_latency_ms_mean"] = sum(lat) / max(1, len(lat))
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
@@ -172,7 +198,9 @@ def main():
     md = [f"# Evaluation: {summary['policy']}  ({summary['n']} seeds)"
           + (f"  - learned picks: {a.policy_objects}" if a.policy else "") + tag, "",
           f"**Task success: {summary['success_rate'] * 100:.0f}%** (95% CI {summary['success_ci95'][0] * 100:.0f}-"
-          f"{summary['success_ci95'][1] * 100:.0f}%)  |  mean retries {summary['mean_retries']:.1f}"
+          f"{summary['success_ci95'][1] * 100:.0f}%)"
+          + (f"  |  strict (droplet pour): {summary['success_strict_rate'] * 100:.0f}%"
+             if "success_strict_rate" in summary else "") + f"  |  mean retries {summary['mean_retries']:.1f}"
           f"  |  mean episode {summary['mean_sim_time_s']:.0f} s (sim)"
           f"  |  timed out {n_timeout}, errors {n_error}"
           + (f"  |  learned-policy steps solved without fallback: {summary['policy_first_try_success'] * 100:.0f}%"

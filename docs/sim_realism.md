@@ -10,7 +10,7 @@ Looked up on 2026-11-17; verify against the documentation of the exact kit befor
 | Effect | Value in `nominal` | How it is modelled | Source |
 |---|---|---|---|
 | Position gain | kp 998.22, kv 2.731 | MuJoCo position actuator per joint | Shipped in `sim/assets/so101/so101.xml` (TheRobotStudio SO-ARM100 model); its comment says the gains are not a 1:1 mapping of the servo gains and were derived assuming servo P gain 16 |
-| Torque limit | 3.35 N·m on every joint | actuator `forcerange` | Same model file. The published peak stall torque of the 12 V STS3215 is 30 kg·cm = 2.94 N·m and of the 7.4 V part 19.5 kg·cm = 1.91 N·m [1][2], so **the model's limit is above the datasheet stall torque**. Not changed here, to keep the baseline; flagged for system identification |
+| Torque limit | Gripper in contact mode: 2.94 N·m (`contact.grip_force`). Arm joints and the gripper in weld-assist mode: 3.35 N·m | actuator `forcerange` | The published peak stall torque of the 12 V STS3215 is 30 kg·cm = 2.94 N·m and of the 7.4 V part 19.5 kg·cm = 1.91 N·m [1][2]; 2.94 is also the default `forcerange` of the actuator class in `so101.xml`. Until 2026-11-17 the contact-mode gripper used the model's per-joint override of 3.35 N·m, **above the datasheet**. The arm joints still use 3.35 N·m so the baseline and weld-assist results stay comparable; flagged for system identification. A 7.4 V kit would be limited to 1.91 N·m |
 | Velocity limit | 4.7 rad/s | slew limit on the commanded target per control step | No-load speed 0.222 s/60° at 12 V [2] = 4.72 rad/s. Under load the real limit is lower (assumed not modelled) |
 | Deadband | 0.0015 rad | target changes below this are not sent | One encoder count: 4096 counts per revolution [1][3] = 0.00153 rad. The servo's own deadband setting is configurable; one count is assumed |
 | Backlash | 0.0087 rad (0.5°) total play | the output follows the target only after the play is taken up | `so101.xml` defines a `backlash` joint class commented "+/- 0.5° of backlash". Our model applies 0.5° total at the command level, not as a separate joint (assumed simplification) |
@@ -34,11 +34,15 @@ reach the learned policy only; actuator effects reach everything.
 
 - **Grasp assist** (`grasp="assist"`): a weld constraint. Not physical.
 - **Contact grasp** (`grasp="contact"`): friction only, with box fingers and pads replacing the convex-hull finger
-  meshes. The gripper squeezes at the model's 3.35 N·m limit, which (see above) exceeds the published stall torque
-  and could not be held continuously on hardware. Pad friction (1.6 sliding, 0.03 torsional) is assumed for a
+  meshes. The gripper squeezes at the 12 V datasheet stall torque, 2.94 N·m (see above), which a real servo could
+  not hold continuously either; a 7.4 V kit (1.91 N·m) is weaker still and has not been simulated. Pad friction (1.6 sliding, 0.03 torsional) is assumed for a
   rubber pad and is not measured. The fork cannot be held this way in our trials.
-- **Pouring** is judged geometrically (bottle tilted more than 55° with its spout within 4 cm above the mug for
-  0.8 s). There is no fluid.
+- **Pouring** has no fluid. The task's `poured` sub-goal is geometric: bottle tilted more than 55° with its spout
+  above the mug (at most 10 cm) and within the mug's inner radius (mug radius minus a 2 mm wall) of its axis for
+  0.8 s. Until 2026-11-17 the tolerance was a fixed 4 cm, about twice the inner radius (`BIMANUAL_POUR_CHECK=
+  legacy_4cm` restores it, for reproducing older numbers). The strict metric (`success_strict`) additionally
+  requires the ballistic droplets of `pour:` in `sim/config.yaml` to land in the mug (at least 80 % of at least
+  0.8 s of droplets); its outflow speed (0.3 m/s along the bottle axis) is assumed, not measured.
 
 ## Not modelled
 

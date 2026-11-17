@@ -19,6 +19,7 @@ CONTROL_HZ = 20                       # policy / controller rate
 SUBSTEPS = int(round(1.0 / CONTROL_HZ / 0.002))
 ARM_DOF = 5
 POUR_TILT_DEG = float(POUR["tilt_deg"])   # bottle tilt beyond which it is taken to be pouring
+POUR_SPOUT_RADIUS = os.environ.get("BIMANUAL_POUR_CHECK", POUR["spout_radius"])   # inner_radius | legacy_4cm
 POUR_OUTFLOW = float(os.environ.get("BIMANUAL_POUR_OUTFLOW", POUR["outflow"]))   # m/s along the bottle axis (assumed)
 
 
@@ -232,16 +233,22 @@ class DinnerTableEnv:
         mujoco.mj_kinematics(self.model, self.data)
 
     def _update_pour(self):
-        """Pour counter: bottle tilted > 55 deg with its spout within 4 cm (horizontally) above the mug opening."""
+        """Pour counter: bottle tilted > 55 deg with its spout above the mug opening and, horizontally, within the
+        mug's inner radius (`pour.spout_radius`: the legacy check allowed a fixed 4 cm)."""
         d = self.data
         bz = d.body("bottle").xmat.reshape(3, 3)[:, 2]
         spout = d.site("bottle_spout").xpos
         mug_top = d.site("mug_top").xpos
         tilt = np.degrees(np.arccos(np.clip(bz[2], -1, 1)))
         horiz = np.linalg.norm(spout[:2] - mug_top[:2])
-        if tilt > POUR_TILT_DEG and horiz < 0.04 and 0.0 < spout[2] - mug_top[2] < 0.10:
+        reach = 0.04 if POUR_SPOUT_RADIUS == "legacy_4cm" else self.mug_inner_radius()
+        if tilt > POUR_TILT_DEG and horiz < reach and 0.0 < spout[2] - mug_top[2] < 0.10:
             self.poured += 1.0 / CONTROL_HZ
         self._emit_particle(tilt, bz, spout.copy(), mug_top)
+
+    def mug_inner_radius(self):
+        """Inner radius of the mug opening: the geom radius minus a 2 mm wall."""
+        return float(self.model.geom("mug_geom").size[0]) - 0.002
 
     def _emit_particle(self, tilt, bottle_axis, spout, mug_top):
         """Stricter, secondary pour metric: ballistic droplets instead of a tolerance box.
@@ -262,9 +269,7 @@ class DinnerTableEnv:
         g = -float(m.opt.gravity[2])
         t = (v[2] + np.sqrt(v[2] ** 2 + 2 * g * drop)) / g              # time to fall to the rim plane
         land = spout[:2] + v[:2] * t
-        geom = m.geom("mug_geom")
-        inner = float(geom.size[0]) - 0.002                              # 2 mm wall
-        if np.linalg.norm(land - mug_top[:2]) < inner:
+        if np.linalg.norm(land - mug_top[:2]) < self.mug_inner_radius():
             self.pour_captured += 1
 
     # ------------------------------------------------------------ kinematics
