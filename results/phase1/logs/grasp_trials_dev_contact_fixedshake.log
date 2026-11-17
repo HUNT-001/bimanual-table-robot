@@ -1,0 +1,7 @@
+grasp@scene    object     n               pick       no slip/drop              place
+contact@v2     plate    100     100 [ 96-100%]     100 [ 96-100%]     100 [ 96-100%]
+contact@v2     bottle   100     100 [ 96-100%]     100 [ 96-100%]      68 [ 58- 76%]
+contact@v2     mug      100      99 [ 95-100%]      99 [ 95-100%]      99 [ 95-100%]
+contact@v2     spoon    100     100 [ 96-100%]       0 [  0-  4%]       0 [  0-  4%]
+contact@v2     fork     100      55 [ 45- 64%]       0 [  0-  4%]       0 [  0-  4%]
+wrote results/phase1/grasp_trials_dev_contact_fixedshake.json (1755 s)
