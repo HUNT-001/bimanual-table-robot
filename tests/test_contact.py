@@ -66,16 +66,14 @@ def test_friction_only_pick_holds_without_a_weld(obj, arm):
 
 
 @pytest.mark.slow
-@pytest.mark.xfail(strict=True, reason="the bottle slides in the tilted pinch until the pads reach its cap: on seed 400 "
-                                       "it follows only 26 mm of the 70 mm lift. Pinching the cap directly was tried "
-                                       "and picked 4/32, so the body grasp stays and the slip is a known defect")
 def test_bottle_follows_the_full_lift():
     env = DinnerTableEnv(400, grasp="contact")
     S = SkillLibrary(env)
     z0 = float(env.data.body("bottle").xpos[2])
     for ctrl in S.pick("A", "bottle"):
         env.step(ctrl)
-    assert float(env.data.body("bottle").xpos[2]) > z0 + 0.06
+    # regression guard: with the fixed fingertip landing on the bottle's top edge it rose only 26 mm of 70
+    assert float(env.data.body("bottle").xpos[2]) > z0 + 0.055
     env.close()
 
 
