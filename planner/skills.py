@@ -11,6 +11,7 @@ import numpy as np
 from sim.env import ARMS, GRIP_CLOSED, GRIP_OPEN, HOME, DinnerTableEnv
 
 LIFT = 0.07
+CARRY_SLOWDOWN = float(__import__("os").environ.get("BIMANUAL_CARRY_SLOWDOWN", 2.0))
 V2_DRAWER_PULL = 0.13   # assist pull on the v2 drawer (115 mm travel); the cutlery must clear the cabinet top
 TRANSIT_Z = 0.13
 CORRIDOR_X = 0.12
@@ -38,6 +39,8 @@ class SkillLibrary:
         return np.concatenate([self.cmd["A"], self.cmd["B"]])
 
     def move(self, arm, q5, steps=25, grip=None):
+        if self.env.grasp == "contact" and self.env.held[arm] not in (None, "drawer")                 and self.env.held[arm] not in self.env.assist_objects:
+            steps = int(np.ceil(steps * CARRY_SLOWDOWN))    # a friction hold cannot take the weld's accelerations
         q0 = self.cmd[arm].copy()
         q1 = q0.copy(); q1[:5] = q5
         if grip is not None:
