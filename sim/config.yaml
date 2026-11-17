@@ -38,11 +38,12 @@ contact:
   pad_condim: 6
   pad_solref: [0.01, 1.0]
   pad_solimp: [0.95, 0.99, 0.001, 0.5, 2]
-  # N*m torque limit of the gripper servo while squeezing. 3.35 is the limit of the stock model, which is above the
-  # published STS3215 stall torque (2.94 N*m at 12 V, 1.91 at 7.4 V; docs/sim_realism.md). Dev seeds
-  # 400-431, bottle placed: 1/32 at 0.6, 16/32 at 1.2, 25/32 at 2.5, 30/32 at 3.35. A real STS3215 cannot hold
-  # stall torque for long without overheating, so this is a sim-to-real item, not a free parameter.
-  grip_force: 3.35
+  # N*m torque limit of the gripper servo while squeezing: the 12 V Feetech STS3215 peak stall torque, 30 kg*cm =
+  # 2.94 N*m (datasheet and retailer listings, sources [1][2] in docs/sim_realism.md; it is also the default
+  # forcerange of the actuator class in so101.xml). The 7.4 V part stalls at 1.91 N*m (19.5 kg*cm). Until 2026-11-17
+  # this was 3.35, the per-joint override in the stock model, which is above the datasheet. A real servo cannot hold
+  # stall torque for long without overheating, so this is still an upper bound.
+  grip_force: 2.94
   impratio: 10.0
   face_x: 0.008            # inner pad face of each finger at jaw angle 0 (measured from the meshes)
   tip_z: -0.104            # fingertip end along the gripper z axis
@@ -51,13 +52,19 @@ contact:
   rim_half: 0.002          # dish rim wall of the v2 plate
   rim_height: 0.016
 
-# Pouring. There is no fluid. The primary check is geometric (tilt beyond tilt_deg with the spout within 4 cm of
-# the mug axis and at most 10 cm above the rim, for 0.8 s). The secondary check emits one ballistic droplet per
-# control step while tilted; `outflow` is its speed along the bottle axis at the spout and is assumed
-# (0 = dripping straight down from the lip; about 0.4 m/s corresponds to a 1 cm head of water).
+# Pouring. There is no fluid. Two checks:
+#  * geometric (the task's `poured` sub-goal): tilt beyond tilt_deg with the spout above the rim (at most 10 cm) and
+#    within `spout_radius` of the mug axis, for 0.8 s. `inner_radius` (default since 2026-11-17) is the mug's inner
+#    radius, the mug radius minus a 2 mm wall; `legacy_4cm` is the earlier fixed 4 cm tolerance, which is about twice
+#    the inner radius, kept only to reproduce numbers from before that date.
+#  * strict (reported as `success_strict`, not the sub-goal): one ballistic droplet per control step while tilted;
+#    at least 0.8 s of droplets and at least 80 % of them must land inside the mug's inner radius. `outflow` is the
+#    droplet speed along the bottle axis at the spout and is assumed (0 = dripping straight down from the lip; about
+#    0.4 m/s corresponds to a 1 cm head of water). It was not tuned against the skill.
 pour:
   tilt_deg: 55.0
   outflow: 0.3
+  spout_radius: inner_radius
 
 # Actuator and sensor realism. "none" reproduces the idealised simulator and is the default.
 # Sources and how each effect is modelled: docs/sim_realism.md. Values marked (assumed) are not identified

@@ -1,0 +1,6 @@
+grasp@scene    object     n               pick       no slip/drop              place
+contact@v2     plate    100     100 [ 96-100%]     100 [ 96-100%]     100 [ 96-100%]
+contact@v2     mug      100      99 [ 95-100%]      99 [ 95-100%]      99 [ 95-100%]
+contact@v2     bottle   100     100 [ 96-100%]     100 [ 96-100%]      74 [ 65- 82%]
+wrote C:/Users/Hello/AppData/Local/Temp/claude/099cf23a04dff227/28990864-50c5-431e-ab65-74e0e2fb3382/scratchpad/trials_2p94_dev.json (2516 s)
+exit 0
