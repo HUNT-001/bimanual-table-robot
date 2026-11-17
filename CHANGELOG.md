@@ -48,22 +48,29 @@ Artifacts in `results/phase1/`. Dev seeds 400–499 unless stated. Not finished:
 handle, cutlery 38 mm apart, 115 mm drawer); `grasp="contact"` only changes the gripper. Assist and contact are
 compared on v2 only; the original scene is `legacy`.
 
-**Per-object grasp trials, 100 dev seeds each** (`grasp_trials_dev.json`; pick, then carry with a shake, then
-place; k of 100 with Wilson 95 % interval for the final stage). Contact-grasp tuning used seeds 400–431, so
-these are tuned-on numbers; the test split is run once at the end of the phase.
+**Per-object grasp trials, 100 dev seeds each** (pick, then carry with a wrist shake, then place; k of 100 with
+Wilson 95 % interval for the final stage). Contact rows: `grasp_trials_dev_contact_fixedshake.json` (commit
+9c73538); assist rows: `grasp_trials_dev.json` (b25b90a; the shake fix does not change assist mode). Contact
+tuning used seeds 400–431, so these are tuned-on numbers; the test split is run once at the end of the phase.
 
 | Object | contact@v2 pick / carried / placed | assist@v2 pick / carried / placed | assist@legacy placed (reference only) |
 |---|---|---|---|
-| Plate | 100 / 100 / 98 (93–99 %) | 100 / 100 / 100 (96–100 %) | 100 |
-| Bottle | 98 / 93 / 86 (78–91 %) | 91 / 91 / 89 (81–94 %) | 87 |
+| Plate | 100 / 100 / 100 (96–100 %) | 100 / 100 / 100 (96–100 %) | 100 |
+| Bottle | 100 / 100 / 68 (58–76 %) | 91 / 91 / 89 (81–94 %) | 87 |
 | Mug | 99 / 99 / 99 (95–100 %) | 100 / 100 / 100 (96–100 %) | 100 |
-| Spoon | 100 / 90 / 89 (81–94 %) | 77 / 77 / 76 (67–83 %) | 96 |
-| Fork | 62 / 14 / 8 (4–15 %) | 100 / 100 / 100 (96–100 %) | 97 |
+| Spoon | 100 / 0 / 0 (0–4 %) | 77 / 77 / 76 (67–83 %) | 96 |
+| Fork | 55 / 0 / 0 (0–4 %) | 100 / 100 / 100 (96–100 %) | 97 |
 
-- Fork friction grasps are a documented limitation: 62 picked, 14 survived the carry. Not tuned further.
-- The bottle is held, but it slides in the pinch until the pads reach its cap (seed 400: it follows 26 mm of a
-  70 mm lift). Pinching the cap directly picked only 4/32, so the body grasp stays; pinned as an expected failure
-  in `tests/test_contact.py`. The trial script now records lift shortfall; this file predates that field.
+- Cutlery friction grasps are a documented limitation and are not tuned further. Both are picked (spoon 100,
+  fork 55) but none survives the shake. An earlier run (57fbc3d, before the half-speed carry) carried the spoon
+  90/100. With the shake held identical, seed 400 keeps the spoon after a full-speed carry and loses it on the
+  third shake after a half-speed one (6/6 vs 0/6 on seeds 400–405, scratch runs). The pinch is marginal: small
+  differences in the state the carry leaves decide it. In the full task, which has no shake, contact places the
+  spoon in 84/100 episodes.
+- Bottle lift now follows the gripper (median 63.7 mm of a 70 mm lift, minimum 62.1) after the centred descent
+  (43bdb1b); 32 of 100 fail at placing.
+- Until 9c73538 the half-speed carry also slowed the trial's shake in contact mode only, so contact and assist
+  were not shaken alike; `grasp_trials_dev.json` contact rows are from that version and are superseded.
 - Contact mode squeezes at the stock servo stall limit, 3.35 N·m. On seeds 400–431 the bottle was placed 1/32 at
   0.6, 16/32 at 1.2, 25/32 at 2.5 and 30/32 at 3.35 (scratch sweeps, not committed). A real STS3215 cannot hold
   stall torque for long.
@@ -72,6 +79,20 @@ these are tuned-on numbers; the test split is run once at the end of the phase.
 
 **Scripted expert, full task, weld assist, legacy scene:** 77/100 on dev (68–84 %), `eval_expert_assist_dev.json`.
 The `wall_s` values in that file include time the laptop spent asleep.
+
+**Scripted expert, full task, v2 scene, dev seeds** (`fulltask_dev/*.json`, commit b25b90a; 0 timeouts, 0 errors
+in every run). Failure causes are the first failed step of each failed episode.
+
+| Grasp | Success | Main failure causes (episodes) |
+|---|---|---|
+| Weld assist | 65/100 (55–74 %) | bottle put-back 14, spoon pick 10, pour 10, bottle re-pick 1 |
+| Contact, fork on weld assist | 65/100 (55–74 %) | plate place 13, pour 8, spoon pick 6, re-picks 4, mug place 2, other 2 |
+| Contact (friction only) | 11/100 (6–19 %) | fork pick 44, fork hand-over 22, plate place 13, spoon pick 6, other 4 |
+
+- Pure contact fails on the fork in 66 of its 89 failures, as the grasp trials predict. Putting only the fork on
+  the weld assist brings contact level with full assist (65 vs 65; same seeds).
+- Assist on v2 (65) is below assist on legacy (77) on the same seeds. By first failed step, the spoon pick goes
+  from 1 to 10 failures and the pour from 5 to 10; bottle put-back is the largest cause in both (12 legacy, 14 v2).
 
 **Learned-policy nondeterminism: source found** (`determinism_*.json`, `scripts/policy_determinism.py`).
 Inference and physics are bit-exact. With identical simulator state the front camera differs by 1 intensity level
