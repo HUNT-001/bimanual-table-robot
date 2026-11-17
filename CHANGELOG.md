@@ -117,6 +117,32 @@ current policy was trained on; its effect on success is not measured yet.
 - Episodes that hit the simulated-step cap are counted as failures: one in default run 3 (seed 434) and one in
   each `--no-msaa` run; none in default runs 1 and 2.
 
+**Actuator and sensor realism** (`sim/config.yaml` profile `nominal`, values and sources in
+`docs/sim_realism.md`; off by default, and the default reproduces `results/baseline/`, checked on legacy seeds 5
+and 17). Scripted expert, assist, legacy, dev: 76/100 (67–83 %) under `nominal` against 77/100 without
+(`realism/eval_expert_assist_legacy_nominal_dev.json`); 71 seeds succeed in both, 6 only without, 5 only with.
+The expert plans from true state, so it sees only the actuator effects.
+
+**Secondary pour metric (ballistic droplets, `pour:` in the config).** No episode passes it in any run so far:
+the expert under `nominal` lands 0.14 % of droplets in the mug, and in a scratch run on seeds 0–9 the geometric
+check passed 10/10 while the droplet check passed 0/10 at every outflow from 0 to 0.3 m/s. The geometric check
+accepts a spout up to 4 cm off the mug axis, twice the mug's inner radius. The success definition
+stays geometric; making the pour skill pass the droplet check is an open item.
+
+**Test-split grasp trials, seeds 1000–1099, run once** (`test_split/grasp_trials_test.json`, commit 5d7cc91,
+identical shake for all modes). Placed out of 100, with Wilson 95 % interval; dev in brackets.
+
+| Object | contact@v2 | assist@v2 | assist@legacy |
+|---|---|---|---|
+| Plate | 99 (95–100 %) [100] | 100 (96–100 %) [100] | 100 [100] |
+| Bottle | 69 (59–77 %) [68] | 89 (81–94 %) [89] | 70 (60–78 %) [87] |
+| Mug | 100 (96–100 %) [99] | 100 (96–100 %) [100] | 100 [100] |
+| Spoon | 0 (0–4 %) [0] | 80 (71–87 %) [76] | 96 [96] |
+| Fork | 0 (0–4 %) [0] | 100 (96–100 %) [100] | 98 [97] |
+
+- Dev and test agree within their intervals except the assist@legacy bottle (70 test vs 87 dev; its pick is 91
+  vs 95, so the loss is at placing).
+
 **Evaluation robustness.** Per-episode wall-clock budget (suspended time not charged) and simulated-step cap;
 episodes that raise are recorded and counted instead of aborting the run.
 
