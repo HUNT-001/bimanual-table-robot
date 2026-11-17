@@ -377,8 +377,10 @@ class DinnerTableEnv:
         g = m.geom(f"{obj}_geom")
         half_h = float(g.size[1] if int(g.type[0]) == 5 else g.size[2])
         if obj == "bottle":
+            # descend_clear: without it the fixed fingertip lands on the top edge of the body wherever the arm
+            # cannot stay vertical, the gripper stops 40 mm high, and only the cap ends up between the pads.
             return dict(point=c + [0, 0, half_h - 0.040 + up], half=float(g.size[0]), dir=None, signed=False,
-                        open=GRIP_OPEN)
+                        open=GRIP_OPEN, descend_clear=0.014)
         if obj == "mug":
             post = m.geom("mug_handle_post")
             pc = d.geom_xpos[post.id]
