@@ -109,3 +109,13 @@ def test_camera_jitter_stays_within_bounds():
         assert 0 < ang <= 2.0 * np.sqrt(3) + 1e-6
     ref.close()
     jit.close()
+
+
+def test_droplet_pour_metric_is_bookkeeping_only():
+    """The secondary pour metric must not change the simulation, and starts empty."""
+    e = DinnerTableEnv(1)
+    assert (e.pour_emitted, e.pour_captured) == (0, 0) and not e.check("poured_particles")
+    for _ in range(5):
+        e.step(CTRL)
+    assert e.pour_emitted == 0, "an upright bottle must not emit droplets"
+    e.close()

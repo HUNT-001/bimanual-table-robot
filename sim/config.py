@@ -14,6 +14,7 @@ with open(PATH, encoding="utf-8") as _f:
 RANDOMIZATION: dict = CFG["randomization"]
 CONTACT: dict = dict(CFG["contact"])
 REALISM: dict = CFG["realism"]
+POUR: dict = CFG["pour"]
 
 # Tuning sweeps can override contact entries without editing the file: BIMANUAL_CONTACT='{"grip_force": 0.8}'
 if os.environ.get("BIMANUAL_CONTACT"):

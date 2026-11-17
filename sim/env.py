@@ -10,7 +10,7 @@ if sys.platform.startswith("linux"):
 import mujoco
 import numpy as np
 
-from .config import CONTACT, realism_profile
+from .config import CONTACT, POUR, realism_profile
 from .scene import ARMS, ARM_JOINTS, OBJECTS, build_scene
 
 HOME = np.array([0.0, -0.72, 0.56, 1.5, 0.0, 0.0])  # retracted, gripper pointing down
@@ -18,6 +18,8 @@ GRIP_OPEN, GRIP_CLOSED = 1.0, -0.05
 CONTROL_HZ = 20                       # policy / controller rate
 SUBSTEPS = int(round(1.0 / CONTROL_HZ / 0.002))
 ARM_DOF = 5
+POUR_TILT_DEG = float(POUR["tilt_deg"])   # bottle tilt beyond which it is taken to be pouring
+POUR_OUTFLOW = float(os.environ.get("BIMANUAL_POUR_OUTFLOW", POUR["outflow"]))   # m/s along the bottle axis (assumed)
 
 
 class DinnerTableEnv:
@@ -73,6 +75,7 @@ class DinnerTableEnv:
             mujoco.mj_step(m, self.data)
         self.t = 0
         self.poured = 0.0
+        self.pour_emitted, self.pour_captured, self._spout_prev = 0, 0, None
         self._renderer = None
         self._video_renderer = None
         return self.observe()
@@ -236,8 +239,33 @@ class DinnerTableEnv:
         mug_top = d.site("mug_top").xpos
         tilt = np.degrees(np.arccos(np.clip(bz[2], -1, 1)))
         horiz = np.linalg.norm(spout[:2] - mug_top[:2])
-        if tilt > 55 and horiz < 0.04 and 0.0 < spout[2] - mug_top[2] < 0.10:
+        if tilt > POUR_TILT_DEG and horiz < 0.04 and 0.0 < spout[2] - mug_top[2] < 0.10:
             self.poured += 1.0 / CONTROL_HZ
+        self._emit_particle(tilt, bz, spout.copy(), mug_top)
+
+    def _emit_particle(self, tilt, bottle_axis, spout, mug_top):
+        """Stricter, secondary pour metric: ballistic droplets instead of a tolerance box.
+
+        While the bottle is tilted past the pour angle, one droplet per control step leaves the spout with the
+        spout's own velocity plus a small outflow along the bottle axis, and falls under gravity. It is captured if
+        it crosses the rim plane of an upright mug inside the mug's inner radius. There is still no fluid: no
+        fill level, no splashing, no collision with the arm or the bottle."""
+        prev, self._spout_prev = self._spout_prev, spout
+        if tilt <= POUR_TILT_DEG or prev is None:
+            return
+        self.pour_emitted += 1
+        d, m = self.data, self.model
+        v = (spout - prev) * CONTROL_HZ + POUR_OUTFLOW * bottle_axis
+        drop = spout[2] - mug_top[2]
+        if drop <= 0 or d.body("mug").xmat.reshape(3, 3)[2, 2] < 0.9:
+            return
+        g = -float(m.opt.gravity[2])
+        t = (v[2] + np.sqrt(v[2] ** 2 + 2 * g * drop)) / g              # time to fall to the rim plane
+        land = spout[:2] + v[:2] * t
+        geom = m.geom("mug_geom")
+        inner = float(geom.size[0]) - 0.002                              # 2 mm wall
+        if np.linalg.norm(land - mug_top[:2]) < inner:
+            self.pour_captured += 1
 
     # ------------------------------------------------------------ kinematics
     def ee_pos(self, arm):
@@ -533,6 +561,8 @@ class DinnerTableEnv:
             return self.held_by(arg) is not None
         if goal == "poured":
             return self.poured > 0.8
+        if goal == "poured_particles":      # at least 0.8 s of droplets, at least 80 % of them into the mug
+            return self.pour_emitted >= 0.8 * CONTROL_HZ and self.pour_captured >= 0.8 * self.pour_emitted
         if goal == "upright":
             z = self.data.body(arg).xmat.reshape(3, 3)[:, 2]
             return z[2] > 0.9

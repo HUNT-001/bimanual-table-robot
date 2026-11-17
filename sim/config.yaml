@@ -51,6 +51,14 @@ contact:
   rim_half: 0.002          # dish rim wall of the v2 plate
   rim_height: 0.016
 
+# Pouring. There is no fluid. The primary check is geometric (tilt beyond tilt_deg with the spout within 4 cm of
+# the mug axis and at most 10 cm above the rim, for 0.8 s). The secondary check emits one ballistic droplet per
+# control step while tilted; `outflow` is its speed along the bottle axis at the spout and is assumed
+# (0 = dripping straight down from the lip; about 0.4 m/s corresponds to a 1 cm head of water).
+pour:
+  tilt_deg: 55.0
+  outflow: 0.3
+
 # Actuator and sensor realism. "none" reproduces the idealised simulator and is the default.
 # Sources and how each effect is modelled: docs/sim_realism.md. Values marked (assumed) are not identified
 # against hardware.

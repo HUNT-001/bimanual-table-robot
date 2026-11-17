@@ -71,6 +71,8 @@ def _run_seed(kw):
                steps=[dict(text=s.text, ok=bool(s.ok), attempts=s.attempts, executor=s.policy) for s in res.steps],
                sim_time_s=res.sim_steps / 20.0, wall_s=round(res.wall_s, 1), suspended_s=round(res.suspended_s, 1),
                timed_out=res.timed_out, error=None,
+               pour_particles=dict(emitted=int(env.pour_emitted), captured=int(env.pour_captured),
+                                   ok=env.check("poured_particles")),
                retries=sum(s.attempts - 1 for s in res.steps),
                policy_latency_ms=res.policy_latency_ms,
                randomization=dict(light=round(p["light_intensity"], 2), table_mu=round(p["table_friction"], 2),
@@ -145,6 +147,14 @@ def main():
         mean_sim_time_s=sum(r["sim_time_s"] for r in results) / len(results),
         wall_total_s=round(time.time() - t0),
     )
+    # stricter secondary pour metric (ballistic droplets); not part of the success definition
+    pp = [r["pour_particles"] for r in results if r.get("pour_particles")]
+    if pp:
+        k = sum(p["ok"] for p in pp)
+        summary["poured_particles_rate"] = k / len(results)
+        summary["poured_particles_ci95"] = list(wilson(k, len(results)))
+        em = sum(p["emitted"] for p in pp)
+        summary["droplets_captured_fraction"] = sum(p["captured"] for p in pp) / em if em else None
     pol = [st for r in results for st in r["steps"] if st["executor"] == "policy"]
     if pol:
         # a learned step only counts as a policy success if it worked on the first attempt (no expert fallback)
