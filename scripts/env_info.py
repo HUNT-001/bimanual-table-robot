@@ -25,6 +25,13 @@ def _version(mod):
         return None
 
 
+def code_revision():
+    """Commit and modified tracked files at the moment a run starts, stored in every results file."""
+    return dict(commit=_run(["git", "rev-parse", "--short", "HEAD"]),
+                modified=[ln[3:] for ln in _run(["git", "status", "--porcelain", "--untracked-files=no"]).splitlines()
+                          if ln])
+
+
 def collect():
     info = dict(
         timestamp=time.strftime("%Y-%m-%dT%H:%M:%S%z"),

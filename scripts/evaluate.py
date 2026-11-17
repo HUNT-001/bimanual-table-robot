@@ -127,6 +127,8 @@ def main():
                  timeout_s=a.timeout or None, max_sim_steps=a.max_sim_steps or None,
                  video_every=a.video_every, video_height=a.video_height, no_shadows=a.no_shadows,
                  no_msaa=a.no_msaa, assist_objects=assist, realism=a.realism) for s in seeds]
+    from scripts.env_info import code_revision
+    code = code_revision()
     t0 = time.time()
     with ProcessPoolExecutor(a.workers) as pool:
         results = list(pool.map(run_seed, jobs))
@@ -135,7 +137,7 @@ def main():
     n_timeout = sum(bool(r.get("timed_out")) for r in results)
     n_error = sum(bool(r.get("error")) for r in results)
     summary = dict(
-        instruction=a.instruction, policy=a.policy or "scripted-expert", device=a.device, n=len(results),
+        code=code, instruction=a.instruction, policy=a.policy or "scripted-expert", device=a.device, n=len(results),
         policy_objects=a.policy_objects if a.policy else None,
         grasp=a.grasp, scene=a.scene, policy_threads=a.threads, msaa=not a.no_msaa, assist_objects=list(assist),
         realism=a.realism,

@@ -96,6 +96,8 @@ def main():
     a = ap.parse_args()
     seeds = parse_seeds(a.seeds)
     jobs = [dict(seed=s, obj=o, grasp=g) for g in a.grasp for o in a.objects for s in seeds]
+    from scripts.env_info import code_revision
+    code = code_revision()
     t0 = time.time()
     with ProcessPoolExecutor(a.workers) as pool:
         trials = list(pool.map(run_trial, jobs, chunksize=4))
@@ -126,7 +128,7 @@ def main():
             print(f"{g:14s} {o:7s} {n:4d} {f('pick'):>18s} {f('transport'):>18s} {f('place'):>18s}")
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "w") as fh:
-        json.dump(dict(seeds=a.seeds, wall_s=round(time.time() - t0), summary=summary, trials=trials), fh, indent=1)
+        json.dump(dict(code=code, seeds=a.seeds, wall_s=round(time.time() - t0), summary=summary, trials=trials), fh, indent=1)
     print(f"wrote {a.out} ({time.time() - t0:.0f} s)")
 
 

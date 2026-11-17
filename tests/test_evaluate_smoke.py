@@ -20,6 +20,7 @@ def test_evaluate_two_seeds(tmp_path):
     d = json.loads(out.read_text())
     s = d["summary"]
     assert s["n"] == 2 and s["policy"] == "scripted-expert"
+    assert len(s["code"]["commit"]) >= 7 and isinstance(s["code"]["modified"], list)
     assert 0.0 <= s["success_rate"] <= 1.0
     assert set(s["subgoal_rates"]) == {"drawer_open", "plate_placed", "spoon_placed", "fork_placed", "mug_placed",
                                        "bottle_placed", "poured"}
