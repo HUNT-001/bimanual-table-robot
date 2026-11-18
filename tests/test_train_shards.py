@@ -49,3 +49,16 @@ def test_mixed_configurations_need_a_flag(tmp_path):
     assert p.returncode != 0 and "mix 2 data configurations" in p.stderr
     p = _train(["--data", str(tmp_path / "a"), "--data", str(tmp_path / "b"), "--allow-mixed"], tmp_path)
     assert p.returncode == 0, p.stderr[-1500:]
+
+
+def test_fine_tune_starts_from_the_checkpoint_and_keeps_its_statistics(tmp_path):
+    _write(tmp_path / "a", range(101, 113))
+    assert _train(["--data", str(tmp_path / "a")], tmp_path).returncode == 0
+    first = torch.load(tmp_path / "m.pt", weights_only=False)
+    (tmp_path / "m.pt").rename(tmp_path / "init.pt")
+    _write(tmp_path / "b", range(120, 132))                       # different data, so different own statistics
+    p = _train(["--data", str(tmp_path / "b"), "--init", str(tmp_path / "init.pt"), "--lr", "1e-5"], tmp_path)
+    assert p.returncode == 0, p.stderr[-1500:]
+    assert "fine-tuning from" in p.stdout
+    ck = torch.load(tmp_path / "m.pt", weights_only=False)
+    assert ck["data"]["init"].endswith("init.pt") and ck["stats"] == first["stats"]

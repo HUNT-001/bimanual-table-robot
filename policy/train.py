@@ -130,6 +130,8 @@ def main():
                     help="data directory; repeat to combine (default data/demos)")
     ap.add_argument("--sources", default=None, help="shard data only: comma list of sources to use (default all)")
     ap.add_argument("--allow-mixed", action="store_true", help="allow shards of different configurations")
+    ap.add_argument("--init", default=None,
+                    help="fine-tune from this checkpoint (weights and its normalisation statistics); shard data only")
     ap.add_argument("--aug", choices=["legacy", "sensor", "none"], default="legacy")
     ap.add_argument("--aug-profile", default="nominal", help="realism profile that --aug sensor mirrors")
     ap.add_argument("--buffer-shards", type=int, default=24)
@@ -159,7 +161,8 @@ def main():
         val_rows = [(d, r) for d, r in rows_all if r["seed"] % 10 == 0]
         tr_rows = [(d, r) for d, r in rows_all if r["seed"] % 10 != 0]
         assert tr_rows, "no training shards after filtering"
-        stats = shard_stats(tr_rows)
+        init_ck = torch.load(a.init, map_location="cpu", weights_only=False) if a.init else None
+        stats = ({k: np.asarray(v, np.float32) for k, v in init_ck["stats"].items()} if init_ck else shard_stats(tr_rows))
         fn = ShardSamples(a.chunk, stats, legacy_aug)
         tr = ShardStream("", [dict(r, path=os.path.join(d, r["path"])) for d, r in tr_rows], fn, a.buffer_shards, a.seed)
         va = ShardStream("", [dict(r, path=os.path.join(d, r["path"])) for d, r in val_rows], fn, a.buffer_shards, a.seed) if val_rows else None
@@ -168,6 +171,7 @@ def main():
         print(f"shards: {len(tr_rows)} train / {len(val_rows)} val; config {data_tags}; "
               f"sources {sorted({r['source'] for _, r in rows_all})}")
     else:
+        assert not a.init, "--init needs shard data (a manifest.jsonl)"
         assert len(dirs) == 1, "combining directories needs shard data (a manifest.jsonl)"
         files = sorted(glob.glob(os.path.join(dirs[0], "ep_*.npz")))
         assert files, f"no demos in {dirs[0]}"
@@ -185,6 +189,10 @@ def main():
     gen = torch.Generator(device=dev).manual_seed(a.seed)
 
     model = ACTLite(chunk=a.chunk).to(dev)
+    if a.init:
+        assert init_ck["chunk"] == a.chunk, "chunk length differs from the initial checkpoint"
+        model.load_state_dict(init_ck["model"])
+        print(f"fine-tuning from {a.init} (epoch {init_ck.get('epoch')}, val_l1 {init_ck.get('val_l1')})")
     print(f"params: {count_params(model) / 1e6:.2f}M")
     opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=1e-4)
     dl = DataLoader(tr, a.batch, shuffle=not sharded, num_workers=a.workers, drop_last=(not sharded) and len(tr) > a.batch,
@@ -233,7 +241,7 @@ def main():
             best = crit
             torch.save(dict(model=model.state_dict(), stats=tr_stats, chunk=a.chunk,
                             cfg=dict(chunk=a.chunk), val_l1=vl, train_l1=tl, epoch=ep + 1,
-                            data=dict(dirs=dirs, config=data_tags, sources=a.sources, aug=a.aug,
+                            data=dict(dirs=dirs, config=data_tags, sources=a.sources, aug=a.aug, init=a.init, lr=a.lr, epochs=a.epochs,
                                       aug_profile=a.aug_profile if a.aug == "sensor" else None, seed=a.seed)), a.out)
         if a.max_steps and step >= a.max_steps:
             break
