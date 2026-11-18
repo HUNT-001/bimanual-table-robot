@@ -1,0 +1,27 @@
+{
+ "definition": "The Phase 2 target and the comparison of a candidate policy against it, per object.",
+ "runs": [
+  "results/phase1/policy_dev/eval_policy_int8_plate-mug_dev_nomsaa_r1.json",
+  "results/phase1/policy_dev/eval_policy_int8_plate-mug_dev_nomsaa_r2.json"
+ ],
+ "target": {
+  "mug": {
+   "k": 104,
+   "n": 200,
+   "rate": 0.52,
+   "ci95": [
+    0.4510378501914959,
+    0.5882083367417456
+   ]
+  },
+  "plate": {
+   "k": 200,
+   "n": 200,
+   "rate": 1.0,
+   "ci95": [
+    0.9811546733310369,
+    1.0
+   ]
+  }
+ }
+}
