@@ -14,15 +14,21 @@ grasp mode, weld-assist objects and realism profile it was recorded under.
     python -m policy.collect ... --source dart --action-noise 0.03 --start-jitter 0.15 --out data/v2_hybrid_nominal_dart
 
 Only train-split seeds are accepted (scripts/splits.py); dev and test seeds are never written into training data.
+
+Crash safety: a shard is written under a temporary name and renamed when complete, and its manifest row is added
+last, by the parent, as soon as the worker returns. A run that is killed therefore leaves at worst an unlisted file,
+which the next run deletes before it starts; seeds count as done only if the manifest lists them. Workers are
+recycled every --recycle seeds (spawned processes, Python 3.11+) to bound memory growth.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import multiprocessing
 import os
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
 
@@ -41,8 +47,6 @@ def collect_seed(kw):
     seed, out, skills, hw = kw["seed"], kw["out"], set(kw["skills"]), tuple(kw["img_hw"])
     objects = set(kw["objects"]) if kw.get("objects") else None
     name = f"ep_{seed:05d}"
-    if os.path.exists(os.path.join(out, "shards", name + ".npz")):
-        return seed, "cached", 0, None
     env = DinnerTableEnv(seed, img_hw=hw, grasp=kw["grasp"], scene=kw["scene"], msaa=not kw["no_msaa"],
                          assist_objects=tuple(kw["assist_objects"]), realism=kw["realism"])
     if kw.get("no_shadows"):
@@ -122,7 +126,8 @@ def main():
     ap.add_argument("--skills", default="pick", help="comma list: pick,place,handoff,pour,open_drawer")
     ap.add_argument("--objects", default=None, help="comma list; record only sub-skills on these objects")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) // 2))
+    ap.add_argument("--workers", type=int, default=3)
+    ap.add_argument("--recycle", type=int, default=10, help="replace a worker process after this many seeds")
     ap.add_argument("--img-hw", default="96,128")
     ap.add_argument("--no-shadows", action="store_true")
     ap.add_argument("--scene", choices=["legacy", "v2"], default="legacy")
@@ -153,14 +158,20 @@ def main():
                 assist_objects=[o for o in a.assist_objects.split(",") if o], realism=a.realism,
                 realism_name=a.realism, realism_params=realism_profile(a.realism), no_msaa=a.no_msaa,
                 source=a.source, action_noise=a.action_noise, start_jitter=a.start_jitter, code=code_revision())
-    jobs = [dict(base, seed=s) for s in seeds]
-    total, rows = 0, []
-    with ProcessPoolExecutor(a.workers) as pool:
-        for seed, msg, n, row in pool.map(collect_seed, jobs):
+    for f in S.remove_orphans(a.out):                    # leftovers of an interrupted run
+        print(f"deleted unlisted file from an interrupted run: shards/{f}", flush=True)
+    done = {r["seed"] for r in S.load_manifest(a.out) if r["source"] == a.source}
+    todo = [s for s in seeds if s not in done]
+    print(f"{len(done & set(seeds))} seeds already in the manifest, {len(todo)} to collect", flush=True)
+    jobs = [dict(base, seed=s) for s in todo]
+    total = 0
+    ctx = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(a.workers, mp_context=ctx, max_tasks_per_child=a.recycle) as pool:
+        for fut in as_completed([pool.submit(collect_seed, j) for j in jobs]):
+            seed, msg, n, row = fut.result()
             total += n
             if row:
-                rows.append(row)
-                S.append_manifest(a.out, [row])          # appended as shards finish, so an interrupted run resumes
+                S.append_manifest(a.out, [row])          # last step: the shard is complete and renamed by now
             print(f"seed {seed}: {msg}", flush=True)
     allrows = S.load_manifest(a.out)
     card = dict(schema=S.SCHEMA, fps=20, robot_type="dual_so101_sim", features={
@@ -170,7 +181,11 @@ def main():
         "task": dict(dtype="string")}, summary=S.summarize(allrows))
     with open(os.path.join(a.out, "dataset_card.json"), "w") as f:
         json.dump(card, f, indent=1)
-    print(f"new frames: {total}; shards in manifest: {len(allrows)}")
+    problems = S.validate(a.out)
+    print(f"new frames: {total}; shards in manifest: {len(allrows)}; validation problems: {len(problems)}")
+    for p in problems:
+        print("  PROBLEM:", p)
+    sys.exit(1 if problems else 0)
 
 
 if __name__ == "__main__":

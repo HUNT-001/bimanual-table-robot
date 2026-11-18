@@ -77,3 +77,42 @@ def test_selection_by_source_and_split(tmp_path):
     assert [r["name"] for r in S.select(rows, sources={"expert"})] == ["ep_0"]
     assert [r["name"] for r in S.select(rows, splits={"dev"})] == ["ep_1"]
     assert [r["name"] for r in S.select(rows, seeds={100})] == ["ep_0"]
+
+
+def test_write_is_atomic(tmp_path, monkeypatch):
+    import os
+    _make(tmp_path)
+    assert not [f for f in os.listdir(tmp_path / "shards") if f.endswith(".tmp")]
+
+    def boom(f, **kw):
+        f.write(b"partial")
+        raise OSError("disk full")
+    monkeypatch.setattr(np, "savez_compressed", boom)
+    with pytest.raises(OSError):
+        S.write_shard(str(tmp_path), "ep_9", _arrays(4, [0], 1), _tags(), dict(seed=109, split="train"))
+    assert sorted(os.listdir(tmp_path / "shards")) == ["ep_0.npz", "ep_1.npz"]      # neither a final nor a temp file
+
+
+def test_validate_accepts_a_consistent_directory_and_finds_each_kind_of_damage(tmp_path):
+    import json
+    import os
+    rows = _make(tmp_path)
+    assert S.validate(str(tmp_path)) == []
+    # an unlisted file (an interrupted run) is reported, and removable
+    S.write_shard(str(tmp_path), "ep_7", _arrays(4, [0], 3), _tags(), dict(seed=107, split="train"))
+    assert any("unlisted file" in p and "ep_7" in p for p in S.validate(str(tmp_path)))
+    assert S.remove_orphans(str(tmp_path)) == ["ep_7.npz"] and S.validate(str(tmp_path)) == []
+    # truncated file: size no longer matches the row (and it will not load)
+    path = tmp_path / "shards" / "ep_1.npz"
+    path.write_bytes(path.read_bytes()[:200])
+    probs = S.validate(str(tmp_path))
+    assert any("size" in p for p in probs) and any("unreadable" in p for p in probs)
+    # a manifest row whose tags disagree with the shard's embedded meta
+    _make_fresh = tmp_path / "b"
+    _make_fresh.mkdir()
+    r = S.write_shard(str(_make_fresh), "ep_0", _arrays(7, [0, 3], 1), _tags(), dict(seed=100, split="train"))
+    r["scene"] = "legacy"
+    S.append_manifest(str(_make_fresh), [r])
+    assert any("embedded tag scene" in p for p in S.validate(str(_make_fresh)))
+    os.remove(_make_fresh / "shards" / "ep_0.npz")
+    assert any("row without file" in p for p in S.validate(str(_make_fresh)))
