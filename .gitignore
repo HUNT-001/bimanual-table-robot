@@ -3,3 +3,5 @@ __pycache__/
 models/ov_cache/
 models/*.pt
 videos/seed_*.mp4
+results/phase2/logs/
+models/phase2/
