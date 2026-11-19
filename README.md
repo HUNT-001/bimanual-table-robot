@@ -80,6 +80,34 @@ picks and 5 / 10 for plate + mug and concluded that the split helps; the repeate
 
 Sub-goals checked: drawer open · plate / spoon / fork / mug / bottle on target (mug and bottle upright) · poured.
 
+### Phases 1–2: friction-only grasps and a learned pick on the harder scene
+
+Details, commands and caveats are in `CHANGELOG.md`; numbers come from `results/phase1/` and `results/phase2/`.
+
+**Contact grasps (Phase 1).** `--grasp contact` removes the weld for a friction pinch; `--scene v2` holds the object
+changes it needs. Per-object grasp trials, 100 seeds each, test split 1000–1099, run once (placed out of 100):
+plate 99, bottle 69, mug 100, spoon 0, fork 0 with contact; with the weld assist on v2: 100, 89, 100, 80, 100.
+Cutlery does not survive a shake with friction alone. Scripted expert, full task, test split: weld assist 66/100
+(56–75 %), contact with the fork on the weld 65/100 (55–74 %), contact only 9/100 (5–16 %).
+
+**Scripted expert, 50 dev seeds, hybrid contact grasp, v2, nominal realism (Phase 2, one configuration):**
+**22 / 50 = 44 %** (31–58 %). Main failures: spoon 18, mug 14, bottle 13, pour 12, plate 10 episodes.
+
+**Learned pick on v2 (Phase 2): target not met.** First-attempt pick success on dev seeds 400–499, 100 per object:
+
+| Policy | Expert seeds | Plate | Mug |
+|---|---|---|---|
+| Existing policy (legacy statistics) | – | 0 % | 10 % |
+| Fine-tuned, recipe E | 81 | 8 % (4–15) | 31 % (23–41) |
+| Fine-tuned, recipe F | 101 | 20 % (13–29) | 33 % (25–43) |
+| Target (legacy-clean level) | – | 100 % | 52 % |
+
+The existing checkpoint's normalisation statistics treat joint 4 as constant (std 0.001) and are about 200× off on
+v2, which is part of why it fails there; fine-tuning keeps its statistics except for that joint (`--restat 4`). More
+expert data helped the plate and not the mug. DAgger, recovery data and SmolVLA were not run, and collection stopped
+at 101 of the planned 300 expert seeds because of memory limits on this machine, so this is a limitation, not a
+negative result for the approach.
+
 ### Robustness: every seed is a different scene
 
 <img src="docs/images/randomization_grid.png" width="820" alt="Six randomized seeds"/>
@@ -118,7 +146,8 @@ friction, object size (±15 %), mug shape (cylinder / box), light intensity and 
 ### Learned policy training
 - **Data:** 300 expert episodes (seeds 100–399, separate from the evaluation seeds; see `results/SPLITS.md`), giving 117,383 frames of picks.
 - **Training:** ACT-Lite (1.61 M parameters), 20 epochs on an RTX 4060 Laptop GPU, about 65 min.
-- **Result:** best validation L1 was **0.0499** (normalized joint targets), reached at epoch 8.
+- **Result:** best validation L1 was **0.0499** (normalized joint targets), reached at epoch 8. This is the
+legacy-scene model; the v2 fine-tunes are in the Phases 1–2 section.
 
 ## How it works
 
@@ -234,13 +263,16 @@ python scripts/make_readme_media.py --out docs/images
   two arms still collide physically.
 - **Pouring is geometric.** There is no fluid simulation. A pour counts when the bottle is tilted more than 55° with
   its spout above the mug rim for at least 0.8 s.
-- **Learned vs scripted.** The learned policy covers the *pick* skill only. Place, hand-over, pour and drawer opening
+- **Learned vs scripted.** On the v2 scene with contact grasps the learned pick is below the target (plate 20 %,
+  mug 33 % first-attempt on dev, against 100 % and 52 %; see Phases 1–2 above), so the scripted skills remain the
+  reliable path there. The learned policy covers the *pick* skill only. Place, hand-over, pour and drawer opening
   are scripted, and the two are reported separately above.
 - **Language.** The planner is a rule-based grammar (tested on the default instruction and paraphrases in
   `planner/language.py`). An OpenVINO-GenAI LLM back-end with the same plan schema is stubbed in but was not
   evaluated for this submission.
 - **Hardware.** Benchmarks ran on an i9-13900HX laptop, not a Core Ultra system, so there are no NPU numbers.
-- **Next steps.** Replace the grasp assist with friction-only grasps, evaluate an INT4 LLM planner on OpenVINO GenAI,
+- **Next steps.** Collect the remaining expert seeds plus recovery data and run DAgger for the v2 pick (Phase 2
+  stopped at 101 seeds); make friction-only grasps work for cutlery and the bottle put-back, evaluate an INT4 LLM planner on OpenVINO GenAI,
   train place and hand-over skills, add a collision-aware loss or more demos near the drawer, evaluate on 30+ unseen
   seeds, and fine-tune SmolVLA / Pi0.5 on the same LeRobot-style data.
 

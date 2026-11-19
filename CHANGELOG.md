@@ -184,3 +184,59 @@ episodes that raise are recorded and counted instead of aborting the run.
 - Open items: bottle placing in contact mode (68–69 %); spoon pick with assist on v2 (76–80 %); pour passes the
   geometric check but not the droplet check; STS3215 torque limit in the model above the datasheet stall torque;
   policy evaluation should report first-attempt pick success.
+
+## Phase 2 — data engine and first fine-tune (2026-11-18 to 2026-11-20), target not met
+
+Artifacts in `results/phase2/`. Dev seeds 400–499, `--scene v2 --grasp contact --assist-objects fork
+--realism nominal --no-msaa`, picks only, FP32 PyTorch on CPU. "First attempt" counts only the policy's first
+try at each pick (200 picks = 100 seeds × plate and mug).
+
+**Built:** crash-safe shard writes and a shard validator (`scripts/validate_shards.py`), a streaming shard dataset
+with a manifest (`policy/shards.py`, `policy/stream.py`), fine-tuning from a checkpoint (`--init`), per-joint
+statistics recomputation (`--restat`), the recipe runner `scripts/phase2_experiments.sh`, and the per-object target
+(`scripts/phase2_target.py`).
+
+**Target** (`target.json`): non-inferiority per object to the legacy-clean level, measured on the legacy scene with
+weld assist and no realism: plate 200/200 (100 %), mug 104/200 (52 %).
+
+**Existing policy on v2 dev, first attempt** (`baseline_policy_picks_dev.md`, measured with the checkpoint's own
+legacy statistics, unchanged): plate 0/100, mug 10/100, 5 % of 200 picks.
+
+**Finding: the legacy statistics do not fit v2.** Joint 4 (arm 1 wrist roll) hardly moved in the legacy demos
+(std 0.001) but the v2 expert rotates it (std 0.2). Normalising by 0.001 scales that joint about 200 times too large:
+the legacy checkpoint's validation L1 on 9 v2 episodes is 11.37 (106 on that joint alone; 2.72 over the others),
+against 0.0499 on its own validation data. The inflated state input is a plausible cause of much of the 5 % above;
+I did not test that, because the weights cannot be evaluated fairly with other statistics. Fix for fine-tuning:
+`--restat 4` keeps the checkpoint's statistics for the other 11 joints and recomputes joint 4's mean and std on the
+new data (state 0.0216 / 0.206, action 0.0254 / 0.209). The patched set is stored in the new checkpoint, which
+the evaluator, the runtime and the OpenVINO export already read. A 5-epoch check brought validation L1 from 11.37
+to 0.118.
+
+**Recipes** (both: `python -m policy.train --data data/v2_hybrid_nominal --aug sensor --aug-profile nominal
+--init models/act_pick.pt --restat 4 --lr 1e-4 --workers 0 --buffer-shards 8 --batch 128 --seed 0 --epochs 20`):
+
+| Recipe | Expert seeds | Train time | Plate first attempt | Mug first attempt |
+|---|---|---|---|---|
+| Existing policy (legacy statistics) | – | – | 0/100 | 10/100 |
+| E | 81 (100–180) | 30 min | 8/100 (4–15 %) | 31/100 (23–41 %) |
+| F | 101 (100–200) | 22 min | 20/100 (13–29 %) | 33/100 (25–43 %) |
+| Target | – | – | 100 % | 52 % |
+
+Both E and F are below the target for both objects beyond noise (`picks_E.json`, `picks_F.json`; 0 timeouts, 0
+errors). More data moved the plate from 8 % to 20 % and the mug not at all within noise. Validation L1 is not
+comparable between E and F because the held-out episodes changed (9 vs 11). Plan stopped here by decision; no
+further iteration.
+
+**Not done:** DAgger, recovery data, SmolVLA, training from scratch (recipes A–C in the runner), and the 100 seeds
+of expert data beyond seed 200 (collection stopped at 101 of 300 seeds; a memory-pressure kill ended the last
+collection run at seed 200, and the remaining seeds 201–210 were skipped). Hardware limit: the machine runs low on
+memory, so every job here ran alone with training workers 0 and collection or evaluation workers 2.
+
+**Scripted expert, full task, 50 dev seeds, one configuration** (hybrid contact grasp, v2, nominal realism;
+`fulltask_dev/eval_expert_hybrid_nominal_dev50.json`; for the README): 22/50 = 44 % (31–58 %), 0 timeouts, 0
+errors. Sub-goal failures (episodes): spoon 18, mug 14, bottle 13, pour 12, plate 10, fork 5, drawer 1. This is
+below the Phase 1 dev rows (65 % with no realism); the difference is the nominal realism profile and was not
+separated further.
+
+Open items: why the plate pick stays at 8–20 % while validation L1 is about 0.1; whether recovery data or DAgger
+closes it; the other statistics differences between legacy and v2 (joint stds differ by up to 2×).
