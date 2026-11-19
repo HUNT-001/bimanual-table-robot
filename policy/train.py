@@ -132,6 +132,8 @@ def main():
     ap.add_argument("--allow-mixed", action="store_true", help="allow shards of different configurations")
     ap.add_argument("--init", default=None,
                     help="fine-tune from this checkpoint (weights and its normalisation statistics); shard data only")
+    ap.add_argument("--restat", default="", help="with --init: comma list of joint indices whose normalisation "
+                    "statistics are recomputed from the new training data (the rest keep the checkpoint's)")
     ap.add_argument("--aug", choices=["legacy", "sensor", "none"], default="legacy")
     ap.add_argument("--aug-profile", default="nominal", help="realism profile that --aug sensor mirrors")
     ap.add_argument("--buffer-shards", type=int, default=24)
@@ -163,6 +165,13 @@ def main():
         assert tr_rows, "no training shards after filtering"
         init_ck = torch.load(a.init, map_location="cpu", weights_only=False) if a.init else None
         stats = ({k: np.asarray(v, np.float32) for k, v in init_ck["stats"].items()} if init_ck else shard_stats(tr_rows))
+        if a.restat:
+            assert init_ck, "--restat needs --init"
+            new = shard_stats(tr_rows)
+            for j in (int(x) for x in a.restat.split(",")):
+                for k in stats:
+                    stats[k] = stats[k].copy(); stats[k][j] = new[k][j]
+            print(f"statistics recomputed on the new data for joints {a.restat}; the others keep {a.init}'s")
         fn = ShardSamples(a.chunk, stats, legacy_aug)
         tr = ShardStream("", [dict(r, path=os.path.join(d, r["path"])) for d, r in tr_rows], fn, a.buffer_shards, a.seed)
         va = ShardStream("", [dict(r, path=os.path.join(d, r["path"])) for d, r in val_rows], fn, a.buffer_shards, a.seed) if val_rows else None
@@ -241,7 +250,7 @@ def main():
             best = crit
             torch.save(dict(model=model.state_dict(), stats=tr_stats, chunk=a.chunk,
                             cfg=dict(chunk=a.chunk), val_l1=vl, train_l1=tl, epoch=ep + 1,
-                            data=dict(dirs=dirs, config=data_tags, sources=a.sources, aug=a.aug, init=a.init, lr=a.lr, epochs=a.epochs,
+                            data=dict(dirs=dirs, config=data_tags, sources=a.sources, aug=a.aug, init=a.init, restat=a.restat, lr=a.lr, epochs=a.epochs,
                                       aug_profile=a.aug_profile if a.aug == "sensor" else None, seed=a.seed)), a.out)
         if a.max_steps and step >= a.max_steps:
             break
