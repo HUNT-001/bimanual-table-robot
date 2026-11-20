@@ -97,3 +97,35 @@ def test_generator_refuses_test_seeds(tmp_path):
     r = subprocess.run([sys.executable, "-m", "perception.generate", "--seeds", "1000-1001", "--out",
                         str(tmp_path / "x")], cwd=ROOT, capture_output=True, text=True)
     assert r.returncode != 0 and "test seeds" in (r.stdout + r.stderr)
+
+
+def test_belief_mug_handle_follows_the_mug_and_drawer_follows_the_gripper():
+    import mujoco
+    from perception.estimator import Belief
+    from perception.oracle import OraclePerceiver
+    env = DinnerTableEnv(seed=20003)
+    b = Belief(env, OraclePerceiver(env))
+    b.observe()
+    np.testing.assert_allclose(b.grasp_point("mug"), env.grasp_point("mug"), atol=1e-6)
+    # move the believed mug (as a carried mug would): the handle goes with it, rotation included
+    p0, h0 = b.est["mug"]["pos"].copy(), b.grasp_point("mug")
+    c, s = np.cos(0.5), np.sin(0.5)
+    Rz = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1.0]])
+    b.est["mug"].update(pos=p0 + [0.05, -0.02, 0], R=Rz @ b.est["mug"]["R"])
+    np.testing.assert_allclose(b.grasp_point("mug"), p0 + [0.05, -0.02, 0] + Rz @ (h0 - p0), atol=1e-9)
+    # kinematic drawer: shut at reset, then the opening follows the holding gripper's x
+    assert b.drawer_s == 0.0
+    x0 = b._gripper("A")[0][0]
+    env.held["A"] = "drawer"
+    b.sync()
+    env.data.qpos[env.model.joint(env.model.actuator(0).trnid[0]).qposadr[0]] += 0.3
+    mujoco.mj_forward(env.model, env.data)
+    x1 = b._gripper("A")[0][0]
+    b.sync()
+    assert abs(x1 - x0) > 0.005
+    assert b.drawer_s == pytest.approx(np.clip(x0 - x1, 0, 0.2), abs=1e-9)
+    env.held["A"] = None
+    b.sync()
+    b.observe()      # an observation does not overwrite the kinematic opening
+    assert b.drawer_s == pytest.approx(np.clip(x0 - x1, 0, 0.2), abs=1e-9)
+    b.close(); env.close()

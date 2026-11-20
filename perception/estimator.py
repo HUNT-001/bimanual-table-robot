@@ -51,12 +51,18 @@ class Perceiver:
 
 
 class Belief:
-    def __init__(self, env, perceiver: Perceiver):
-        self.env, self.p = env, perceiver
+    def __init__(self, env, perceiver: Perceiver, drawer="kinematic"):
+        """drawer: "kinematic" -- the drawer is shut at reset (cabinet calibration) and only a gripper moves it, so
+        the opening follows the holding gripper's forward kinematics; "cnn" -- the CNN's drawer_s output."""
+        assert drawer in ("kinematic", "cnn")
+        self.env, self.p, self.drawer_mode = env, perceiver, drawer
         self.views = Views(perceiver.hw, perceiver.cameras)
         self.est = {}           # obj -> dict(pos, R, extra)
         self.inhand = {}        # obj -> (arm, local pos, local R)
         self.drawer_s = 0.0
+        self.drawer_cnn = 0.0
+        self._drawer_grip = None   # (arm, gripper x, opening) when the handle was grasped
+        self.trust_once = set()    # objects an arm just set down: the next pick keeps the kinematic estimate
         self.log = []           # (sim step, obj, true-vs-estimate xy error in mm) for the report
 
     # -------------------------------------------------------------- estimates
@@ -68,19 +74,22 @@ class Belief:
         est["plate"] = dict(pos=np.array([g("plate_x"), g("plate_y"), PLATE_Z]), R=np.eye(3), r=g("plate_r"))
         myaw = np.arctan2(g("mug_s"), g("mug_c"))
         mug_h = g("mug_topz") / 2
-        est["mug"] = dict(pos=np.array([g("mug_x"), g("mug_y"), mug_h]), R=_rz(myaw), half_h=mug_h,
-                          handle=np.array([g("mug_hx"), g("mug_hy"), g("mug_hz")]))
+        mpos, mR = np.array([g("mug_x"), g("mug_y"), mug_h]), _rz(myaw)
+        est["mug"] = dict(pos=mpos, R=mR, half_h=mug_h,
+                          handle_local=mR.T @ (np.array([g("mug_hx"), g("mug_hy"), g("mug_hz")]) - mpos))
         est["bottle"] = dict(pos=np.array([g("bottle_x"), g("bottle_y"), g("bottle_z")]), R=np.eye(3),
                              half_h=g("bottle_z"))
         for o in ("fork", "spoon"):
             th = np.arctan2(g(f"{o}_s2"), g(f"{o}_c2")) / 2
             est[o] = dict(pos=np.array([g(f"{o}_x"), g(f"{o}_y"), g(f"{o}_z")]), R=_rz(th))
         for o, e in est.items():
-            if o not in self.inhand:
+            if o not in self.inhand and o not in self.trust_once:
                 # geometry that does not change while the object is moved (sizes) is kept from the first estimate
                 keep = {k: v for k, v in self.est.get(o, {}).items() if k in ("r", "half_h")}
                 self.est[o] = {**e, **keep} if keep and o != focus else e
-        self.drawer_s = float(np.clip(g("drawer_s"), 0.0, 0.2))
+        self.drawer_cnn = float(np.clip(g("drawer_s"), 0.0, 0.2))
+        if self.drawer_mode == "cnn":
+            self.drawer_s = self.drawer_cnn
         if focus is not None:
             true = self.env.data.body(focus).xpos[:2]
             self.log.append(dict(t=int(self.env.t), obj=focus,
@@ -129,6 +138,16 @@ class Belief:
         for o, a in held.items():
             if o not in self.inhand:
                 self.attach(a, o)
+        if self.drawer_mode == "kinematic":
+            arm = next((a for a, o in self.env.held.items() if o == "drawer"), None)
+            if arm is None:
+                self._drawer_grip = None
+            else:
+                x = self._gripper(arm)[0][0]
+                if self._drawer_grip is None or self._drawer_grip[0] != arm:
+                    self._drawer_grip = (arm, x, self.drawer_s)
+                _, x0, s0 = self._drawer_grip
+                self.drawer_s = float(np.clip(s0 + (x0 - x), 0.0, 0.2))   # the slide opens along -x
 
     # ------------------------------------------------------ skill-level points
     def site(self, obj, which):
@@ -146,8 +165,8 @@ class Belief:
         e = self.est[obj]
         if obj == "plate":
             return p + np.array([0.75 * e["r"], 0, 0.004])
-        if obj == "mug":
-            return e["handle"].copy()
+        if obj == "mug":     # the handle estimate lives in the mug frame so it travels with a held mug
+            return p + R @ e["handle_local"]
         if obj == "bottle":
             return p + np.array([0, 0, e["half_h"] - 0.014])
         if obj in ("fork", "spoon"):
@@ -159,6 +178,12 @@ class Belief:
             p, R = self.pose(obj)
             return [p + R @ np.array([-CUTLERY_END, 0, 0]), p + R @ np.array([CUTLERY_END, 0, 0])]
         return [self.grasp_point(obj)]
+
+    def relocate_drawer(self):
+        """Opening the drawer again means something pushed it after the arm let go, which the kinematic estimate
+        cannot see: take the CNN's opening (from the last observe) instead."""
+        if self.drawer_mode == "kinematic" and self.drawer_s > 0.01:
+            self.drawer_s = self.drawer_cnn
 
     def handle_pos(self):
         return HANDLE_CLOSED + np.array([-self.drawer_s, 0, 0])
