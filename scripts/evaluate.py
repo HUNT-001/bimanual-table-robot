@@ -165,8 +165,20 @@ def main():
     from scripts.env_info import code_revision
     code = code_revision()
     t0 = time.time()
-    with ProcessPoolExecutor(a.workers) as pool:
-        results = list(pool.map(run_seed, jobs))
+    # each finished episode is appended to <out>.partial.jsonl, so an interrupted run keeps what it finished
+    partial = os.path.splitext(a.out)[0] + ".partial.jsonl"
+    os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
+    from concurrent.futures import as_completed
+    by_seed = {}
+    with ProcessPoolExecutor(a.workers) as pool, open(partial, "w") as pf:
+        futs = [pool.submit(run_seed, j) for j in jobs]
+        for k, fut in enumerate(as_completed(futs), 1):
+            r = fut.result()
+            by_seed[r["seed"]] = r
+            pf.write(json.dumps(r) + "\n"); pf.flush()
+            print(f"[{k}/{len(jobs)}] seed {r['seed']} {'ok' if r['success'] else 'FAIL'}  "
+                  f"{time.time() - t0:.0f} s", flush=True)
+    results = [by_seed[s] for s in seeds]
     goals = sorted({g for r in results for g in r["subgoals"]})
     n_ok = sum(r["success"] for r in results)
     n_timeout = sum(bool(r.get("timed_out")) for r in results)
