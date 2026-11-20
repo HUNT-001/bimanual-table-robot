@@ -1,0 +1,126 @@
+{
+ "hardware": {
+  "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+  "os": "Windows-11-10.0.26300-SP0",
+  "openvino": "2026.3.1-22476-759c5a6ab8c-releases/2026/3",
+  "available_devices": [
+   "CPU",
+   "GPU.0",
+   "GPU.1"
+  ],
+  "device_names": {
+   "CPU": "13th Gen Intel(R) Core(TM) i9-13900HX",
+   "GPU.0": "Intel(R) RaptorLake-S Mobile Graphics Controller (iGPU)",
+   "GPU.1": "NVIDIA GeForce RTX 4060 Laptop GPU (dGPU)"
+  }
+ },
+ "results": [
+  {
+   "model": "act_pick.pt",
+   "runtime": "pytorch",
+   "device": "CPU",
+   "precision": "fp32",
+   "mean_ms": 8.449754499997653,
+   "p50_ms": 8.480050000343908,
+   "p90_ms": 9.405940000397095,
+   "p99_ms": 9.974991999861226,
+   "fps_sync": 118.34663362116353,
+   "speedup_vs_pytorch": 1.0
+  },
+  {
+   "model": "act_pick_fp32.xml",
+   "runtime": "openvino",
+   "device": "CPU",
+   "precision": "fp32",
+   "mean_ms": 2.000313999969876,
+   "p50_ms": 1.9276499997431529,
+   "p90_ms": 2.1271399999932328,
+   "p99_ms": 3.089779999691018,
+   "fps_sync": 499.921512330094,
+   "compile_s": 0.2041311000002679,
+   "fps_throughput": 1607.94259323271,
+   "infer_requests": 24,
+   "speedup_vs_pytorch": 4.224214048456844
+  },
+  {
+   "model": "act_pick_fp32.xml",
+   "runtime": "openvino",
+   "device": "GPU.0",
+   "precision": "fp32",
+   "mean_ms": 2.893573500000457,
+   "p50_ms": 2.8148999999757507,
+   "p90_ms": 3.157299999566021,
+   "p99_ms": 3.7081019997276594,
+   "fps_sync": 345.59343317176564,
+   "compile_s": 0.3913642000006803,
+   "fps_throughput": 496.68012793983786,
+   "infer_requests": 4,
+   "speedup_vs_pytorch": 2.920179667112765
+  },
+  {
+   "model": "act_pick_fp16.xml",
+   "runtime": "openvino",
+   "device": "CPU",
+   "precision": "fp16",
+   "mean_ms": 2.125702500029547,
+   "p50_ms": 1.9908499998564366,
+   "p90_ms": 2.4644699998134456,
+   "p99_ms": 3.4001499999794738,
+   "fps_sync": 470.4327157662467,
+   "compile_s": 0.2108564000000115,
+   "fps_throughput": 1469.0468163166959,
+   "infer_requests": 24,
+   "speedup_vs_pytorch": 3.97504095699196
+  },
+  {
+   "model": "act_pick_fp16.xml",
+   "runtime": "openvino",
+   "device": "GPU.0",
+   "precision": "fp16",
+   "mean_ms": 3.256325499983177,
+   "p50_ms": 3.1762000003254798,
+   "p90_ms": 3.5495399999490473,
+   "p99_ms": 4.726110000174228,
+   "fps_sync": 307.09460709783656,
+   "compile_s": 0.3165933000000223,
+   "fps_throughput": 465.81418788497365,
+   "infer_requests": 4,
+   "speedup_vs_pytorch": 2.5948740382499556
+  },
+  {
+   "model": "act_pick_int8.xml",
+   "runtime": "openvino",
+   "device": "CPU",
+   "precision": "int8",
+   "mean_ms": 1.6103349999593775,
+   "p50_ms": 1.5416999999615655,
+   "p90_ms": 1.9331899999997404,
+   "p99_ms": 2.389674000214654,
+   "fps_sync": 620.9888004826487,
+   "compile_s": 0.41019540000070265,
+   "fps_throughput": 2690.7597292848704,
+   "infer_requests": 24,
+   "speedup_vs_pytorch": 5.247202911326405
+  },
+  {
+   "model": "act_pick_int8.xml",
+   "runtime": "openvino",
+   "device": "GPU.0",
+   "precision": "int8",
+   "mean_ms": 2.713233500012393,
+   "p50_ms": 2.6397499996164697,
+   "p90_ms": 2.9008299994529807,
+   "p99_ms": 3.7411169996721574,
+   "fps_sync": 368.56392934682265,
+   "compile_s": 0.5104280000005019,
+   "fps_throughput": 441.39825698479393,
+   "infer_requests": 4,
+   "speedup_vs_pytorch": 3.1142747205351315
+  }
+ ],
+ "sim": {
+  "control_step_ms": 1.9342950000009296,
+  "control_hz_physics_only": 516.9842242261493,
+  "render_2cam_ms": 1.9720999999663036
+ }
+}

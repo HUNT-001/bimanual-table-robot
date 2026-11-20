@@ -1,0 +1,124 @@
+{
+ "seed": 1,
+ "device": "GPU",
+ "threads": null,
+ "concurrent": false,
+ "comparisons": [
+  {
+   "run": 1,
+   "first_divergent_call": 24,
+   "step": 387,
+   "cause": "rendering: same joint state, different images",
+   "image_diff": {
+    "overhead": {
+     "pixels": 0,
+     "of": 12288,
+     "max_abs": 0,
+     "rows": null,
+     "cols": null
+    },
+    "front": {
+     "pixels": 12,
+     "of": 12288,
+     "max_abs": 1,
+     "rows": [
+      28,
+      41
+     ],
+     "cols": [
+      65,
+      103
+     ]
+    }
+   }
+  },
+  {
+   "run": 2,
+   "first_divergent_call": 20,
+   "step": 367,
+   "cause": "rendering: same joint state, different images",
+   "image_diff": {
+    "overhead": {
+     "pixels": 0,
+     "of": 12288,
+     "max_abs": 0,
+     "rows": null,
+     "cols": null
+    },
+    "front": {
+     "pixels": 9,
+     "of": 12288,
+     "max_abs": 1,
+     "rows": [
+      28,
+      31
+     ],
+     "cols": [
+      65,
+      78
+     ]
+    }
+   }
+  },
+  {
+   "run": 3,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 4,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 5,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 6,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 7,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  }
+ ],
+ "gl": [
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60"
+ ],
+ "success": [
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false
+ ],
+ "n_calls": [
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47
+ ]
+}

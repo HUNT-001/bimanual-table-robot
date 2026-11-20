@@ -10,6 +10,7 @@ if sys.platform.startswith("linux"):
 import mujoco
 import numpy as np
 
+from .config import CONTACT, POUR, realism_profile
 from .scene import ARMS, ARM_JOINTS, OBJECTS, build_scene
 
 HOME = np.array([0.0, -0.72, 0.56, 1.5, 0.0, 0.0])  # retracted, gripper pointing down
@@ -17,12 +18,28 @@ GRIP_OPEN, GRIP_CLOSED = 1.0, -0.05
 CONTROL_HZ = 20                       # policy / controller rate
 SUBSTEPS = int(round(1.0 / CONTROL_HZ / 0.002))
 ARM_DOF = 5
+POUR_TILT_DEG = float(POUR["tilt_deg"])   # bottle tilt beyond which it is taken to be pouring
+POUR_SPOUT_RADIUS = os.environ.get("BIMANUAL_POUR_CHECK", POUR["spout_radius"])   # inner_radius | legacy_4cm
+POUR_OUTFLOW = float(os.environ.get("BIMANUAL_POUR_OUTFLOW", POUR["outflow"]))   # m/s along the bottle axis (assumed)
 
 
 class DinnerTableEnv:
     def __init__(self, seed: int = 0, randomize: bool = True, img_hw=(96, 128),
-                 cameras=("overhead", "front"), render_video: bool = False):
+                 cameras=("overhead", "front"), render_video: bool = False, grasp: str = "assist", scene: str = "legacy",
+                 msaa: bool = True, assist_objects=(), realism="none"):
         self.img_hw, self.cameras = img_hw, cameras
+        # Actuator/sensor realism profile from sim/config.yaml ("none" = idealised simulator). See docs/sim_realism.md.
+        self.realism = realism if isinstance(realism, str) else "custom"
+        self.rl = realism_profile(realism)
+        # Contact mode only: objects that keep the weld assist because a friction grasp of them does not work
+        # (the fork). Results with a non-empty list are a hybrid and must be labelled as such.
+        self.assist_objects = tuple(assist_objects) if grasp == "contact" else ()
+        self.grasp = grasp                # "assist": weld on close; "contact": friction only
+        self.scene = "v2" if grasp == "contact" else scene   # contact grasps need the v2 objects
+        # Multisampled shadow edges are not bit-reproducible between processes on this GPU (1 intensity level on
+        # up to 14 pixels of the front camera), which is enough to change a learned-policy episode. msaa=False
+        # renders reproducibly but shifts the images away from what the current policy was trained on.
+        self.msaa = msaa
         self.render_video = render_video
         self._renderer = None
         self._video_renderer = None
@@ -31,7 +48,10 @@ class DinnerTableEnv:
     # ------------------------------------------------------------------ setup
     def reset(self, seed: int = 0, randomize: bool = True):
         self.seed = seed
-        self.model, self.info = build_scene(seed, randomize)
+        self.model, self.info = build_scene(seed, randomize, self.grasp, self.scene)
+        if not self.msaa:
+            self.model.vis.quality.offsamples = 0
+        self._init_realism(seed)
         self.data = mujoco.MjData(self.model)
         m = self.model
         self.qadr = {a: np.array([m.joint(f"{a}_{j}").qposadr[0] for j in ARM_JOINTS]) for a in ARMS}
@@ -41,6 +61,10 @@ class DinnerTableEnv:
         self.fsite = {a: m.site(f"{a}_gripperframe").id for a in ARMS}
         self.eq = {(a, o): m.equality(f"grip_{a}_{o}").id for a in ARMS for o in OBJECTS + ("drawer",)}
         self.held = {a: None for a in ARMS}
+        if self.grasp == "contact":
+            self.pads = {a: (m.geom(f"{a}_pad_fixed").id, m.geom(f"{a}_pad_moving").id) for a in ARMS}
+            self.obj_body = {m.body(o).id: o for o in OBJECTS + ("drawer",)}
+            self.site_x0 = float(m.site_pos[self.site["A"]][0])
         self.intent = {a: None for a in ARMS}   # object the current skill wants to grasp (None = any)
         self.blocked = {a: False for a in ARMS}  # gripper closed on nothing -> must reopen before grasping
         for a in ARMS:
@@ -52,6 +76,7 @@ class DinnerTableEnv:
             mujoco.mj_step(m, self.data)
         self.t = 0
         self.poured = 0.0
+        self.pour_emitted, self.pour_captured, self._spout_prev = 0, 0, None
         self._renderer = None
         self._video_renderer = None
         return self.observe()
@@ -59,6 +84,8 @@ class DinnerTableEnv:
     # --------------------------------------------------------------- stepping
     def step(self, ctrl: np.ndarray):
         """ctrl: 12-vector [armA(6), armB(6)] absolute joint targets."""
+        if self.rl:
+            ctrl = self._actuate(np.asarray(ctrl, float))
         for i, a in enumerate(ARMS):
             c = ctrl[6 * i: 6 * i + 6]
             self.data.ctrl[self.act[a]] = c
@@ -69,6 +96,51 @@ class DinnerTableEnv:
         self.t += 1
         return self.observe()
 
+    # ---------------------------------------------------------------- realism
+    def _init_realism(self, seed):
+        """Per-episode draws of the realism profile (own RNG, so the scene randomization is untouched)."""
+        rl = self.rl
+        self._rl_rng = np.random.default_rng([seed, 7919])
+        self._ctrl_queue, self._sent, self._eff = [], None, None
+        self._latency = int(self._rl_rng.integers(rl["latency_steps"][0], rl["latency_steps"][1] + 1)) \
+            if rl.get("latency_steps") else 0
+        self._exposure = float(self._rl_rng.uniform(*rl["camera_exposure"])) if rl.get("camera_exposure") else 1.0
+        self.info.params.update(realism=self.realism, latency_steps=self._latency, exposure=self._exposure)
+        mm, deg = rl.get("camera_jitter_mm", 0.0), rl.get("camera_jitter_deg", 0.0)
+        if mm or deg:
+            for cam in self.cameras:
+                cid = self.model.camera(cam).id
+                self.model.cam_pos[cid] += self._rl_rng.uniform(-mm, mm, 3) / 1000.0
+                rot = np.radians(self._rl_rng.uniform(-deg, deg, 3))
+                ang = float(np.linalg.norm(rot))
+                if ang > 0:
+                    dq, q = np.zeros(4), np.zeros(4)
+                    mujoco.mju_axisAngle2Quat(dq, rot / ang, ang)
+                    mujoco.mju_mulQuat(q, self.model.cam_quat[cid], dq)
+                    self.model.cam_quat[cid] = q
+
+    def _actuate(self, ctrl):
+        """What the servos actually track: delayed, slew-limited, dead-banded targets with gear backlash."""
+        rl = self.rl
+        if self._sent is None:
+            self._sent, self._eff = ctrl.copy(), ctrl.copy()
+        self._ctrl_queue.append(ctrl.copy())
+        if len(self._ctrl_queue) > self._latency + 1:
+            self._ctrl_queue.pop(0)
+        target = self._ctrl_queue[0]                                 # the command issued `latency` steps ago
+        if rl.get("deadband"):
+            target = np.where(np.abs(target - self._sent) < rl["deadband"], self._sent, target)
+        if rl.get("velocity_limit"):
+            dmax = rl["velocity_limit"] / CONTROL_HZ
+            target = self._sent + np.clip(target - self._sent, -dmax, dmax)
+        self._sent = target
+        if rl.get("backlash"):
+            half = rl["backlash"] / 2
+            self._eff = np.clip(self._eff, target - half, target + half)   # output only moves once the play is taken up
+        else:
+            self._eff = target
+        return self._eff
+
     def _update_grasp(self, arm: str, grip_cmd: float):
         """Grasp assist: when the gripper closes on an object inside the jaws, weld it.
 
@@ -77,6 +149,14 @@ class DinnerTableEnv:
         It is only triggered when the object is physically between the jaws (< 2.5 cm).
         """
         m, d = self.model, self.data
+        if self.grasp == "contact":
+            h = self.held[arm]
+            welded = h in self.assist_objects and bool(d.eq_active[self.eq[(arm, h)]])
+            if not welded and self.intent[arm] not in self.assist_objects:
+                self.held[arm] = self._pinched(arm)
+                return
+            if not welded:
+                self.held[arm] = None       # the weld logic below starts from an empty hand
         closing = grip_cmd < 0.35
         if not closing:
             if self.held[arm] is not None:
@@ -122,16 +202,75 @@ class DinnerTableEnv:
         d.eq_active[eid] = 1
         self.held[arm] = best
 
+    def _pinched(self, arm):
+        """Contact mode: the object touched by BOTH pads of this gripper (None if there is none)."""
+        m, d = self.model, self.data
+        fixed, moving = self.pads[arm]
+        touch = {fixed: set(), moving: set()}
+        for i in range(d.ncon):
+            c = d.contact[i]
+            for pad, other in ((c.geom1, c.geom2), (c.geom2, c.geom1)):
+                if pad in touch and c.dist < 1e-3:
+                    o = self.obj_body.get(int(m.geom_bodyid[other]))
+                    if o is not None:
+                        touch[pad].add(o)
+        both = touch[fixed] & touch[moving]
+        if not both:
+            return None
+        if self.held[arm] in both:
+            return self.held[arm]
+        return self.intent[arm] if self.intent[arm] in both else sorted(both)[0]
+
+    def set_grasp_halfwidth(self, arm, half_width=None, clearance=0.003):
+        """Contact mode: move the grasp site so an object of this half-width sits just off the fixed pad.
+
+        The fixed finger does not move, so the IK target must put the object's near side next to it; the weld
+        assist never needed this. None restores the nominal site."""
+        if self.grasp != "contact":
+            return
+        x = self.site_x0 if half_width is None else -CONTACT["face_x"] + half_width + clearance
+        self.model.site_pos[self.site[arm]][0] = x
+        mujoco.mj_kinematics(self.model, self.data)
+
     def _update_pour(self):
-        """Pour counter: bottle tilted > 70deg with spout above the mug opening."""
+        """Pour counter: bottle tilted > 55 deg with its spout above the mug opening and, horizontally, within the
+        mug's inner radius (`pour.spout_radius`: the legacy check allowed a fixed 4 cm)."""
         d = self.data
         bz = d.body("bottle").xmat.reshape(3, 3)[:, 2]
         spout = d.site("bottle_spout").xpos
         mug_top = d.site("mug_top").xpos
         tilt = np.degrees(np.arccos(np.clip(bz[2], -1, 1)))
         horiz = np.linalg.norm(spout[:2] - mug_top[:2])
-        if tilt > 55 and horiz < 0.04 and 0.0 < spout[2] - mug_top[2] < 0.10:
+        reach = 0.04 if POUR_SPOUT_RADIUS == "legacy_4cm" else self.mug_inner_radius()
+        if tilt > POUR_TILT_DEG and horiz < reach and 0.0 < spout[2] - mug_top[2] < 0.10:
             self.poured += 1.0 / CONTROL_HZ
+        self._emit_particle(tilt, bz, spout.copy(), mug_top)
+
+    def mug_inner_radius(self):
+        """Inner radius of the mug opening: the geom radius minus a 2 mm wall."""
+        return float(self.model.geom("mug_geom").size[0]) - 0.002
+
+    def _emit_particle(self, tilt, bottle_axis, spout, mug_top):
+        """Stricter, secondary pour metric: ballistic droplets instead of a tolerance box.
+
+        While the bottle is tilted past the pour angle, one droplet per control step leaves the spout with the
+        spout's own velocity plus a small outflow along the bottle axis, and falls under gravity. It is captured if
+        it crosses the rim plane of an upright mug inside the mug's inner radius. There is still no fluid: no
+        fill level, no splashing, no collision with the arm or the bottle."""
+        prev, self._spout_prev = self._spout_prev, spout
+        if tilt <= POUR_TILT_DEG or prev is None:
+            return
+        self.pour_emitted += 1
+        d, m = self.data, self.model
+        v = (spout - prev) * CONTROL_HZ + POUR_OUTFLOW * bottle_axis
+        drop = spout[2] - mug_top[2]
+        if drop <= 0 or d.body("mug").xmat.reshape(3, 3)[2, 2] < 0.9:
+            return
+        g = -float(m.opt.gravity[2])
+        t = (v[2] + np.sqrt(v[2] ** 2 + 2 * g * drop)) / g              # time to fall to the rim plane
+        land = spout[:2] + v[:2] * t
+        if np.linalg.norm(land - mug_top[:2]) < self.mug_inner_radius():
+            self.pour_captured += 1
 
     # ------------------------------------------------------------ kinematics
     def ee_pos(self, arm):
@@ -145,10 +284,11 @@ class DinnerTableEnv:
         return self.data.qpos[self.qadr[arm]].copy()
 
     def ik(self, arm, target_pos, approach=(0, 0, -1), q_init=None, iters=200, roll=None, restarts=6,
-           local_only=False):
+           local_only=False, pos_tol=1.5e-3):
         """Damped least-squares IK (grasp-site position + gripper approach axis), with restarts.
 
         Returns (q[5], position_error). Wrist roll is left untouched unless `roll` is given.
+        `pos_tol` is the position error (m) at which a solution is accepted.
         """
         m = self.model
         d = mujoco.MjData(m)
@@ -184,7 +324,7 @@ class DinnerTableEnv:
                 if ax @ approach < 0:  # antiparallel: push away along any perpendicular
                     eo = eo + np.cross(ax, np.array([0.0, 0.0, 1.0]) if abs(ax[2]) < 0.9 else np.array([1.0, 0, 0]))
                 pe, oe = np.linalg.norm(ep), np.linalg.norm(eo)
-                if pe < 1.5e-3 and oe < 0.02:
+                if pe < pos_tol and oe < 0.02:
                     break
                 mujoco.mj_comPos(m, d)
                 mujoco.mj_jacSite(m, d, jp, jr, sid)
@@ -196,7 +336,7 @@ class DinnerTableEnv:
             score = pe + 0.05 * oe
             if score < best[1] + 0.05 * best[2]:
                 best = (d.qpos[qa].copy(), pe, oe)
-            if pe < 2e-3 and oe < 0.03:
+            if pe < pos_tol + 0.5e-3 and oe < 0.03:
                 break
         return best[0], best[1]
 
@@ -294,8 +434,12 @@ class DinnerTableEnv:
         if obj == "plate":
             # rim on the far side (away from the robots) is inside the reachable workspace
             rr = self.info.params["plate_r"]
-            p[0] += rr * 0.75
-            p[2] += 0.004
+            if self.scene == "v2":      # the dish has a rim: close on the rim wall, not on the base inside it
+                p[0] += rr - CONTACT["rim_half"]
+                p[2] += CONTACT["rim_height"] + 0.004    # jaw tips stay above the base: no stored penetration
+            else:
+                p[0] += rr * 0.75
+                p[2] += 0.004
         elif obj == "mug":
             p = d.site("mug_handle").xpos.copy()
         elif obj == "bottle":
@@ -303,6 +447,53 @@ class DinnerTableEnv:
             half = float(g.size[1] if int(g.type[0]) == 5 else g.size[2])
             p[2] += half - 0.014   # near the top rim / neck
         return p
+
+    def grasp_spec(self, obj, arm, point=None):
+        """Contact mode: where and how to pinch an object.
+
+        Returns dict(point, half, dir, signed, open):
+          point   world target for the grasp site (which sits 10 mm above the fingertips)
+          half    half-width of the part between the pads
+          dir     world xy direction the jaws must close along (None: any)
+          signed  True if `dir` must point from the fixed finger to the moving finger
+          open    gripper opening before the descent
+          descend_clear  (optional) gap kept between the part and the fixed pad while descending; the gripper
+                  shifts over to the usual 3 mm at the bottom. Needed where the arm cannot stay vertical.
+        """
+        d, m = self.data, self.model
+        up = CONTACT["site_above_tip"]
+        if obj == "drawer":
+            h = self.handle_pos()
+            return dict(point=h + [0, 0, -0.022 + up], half=0.005, dir=np.array([-1.0, 0.0]), signed=True, open=0.45)
+        c = d.body(obj).xpos.copy()
+        R = d.body(obj).xmat.reshape(3, 3)
+        g = m.geom(f"{obj}_geom")
+        half_h = float(g.size[1] if int(g.type[0]) == 5 else g.size[2])
+        if obj == "bottle":
+            # descend_clear: without it the fixed fingertip lands on the top edge of the body wherever the arm
+            # cannot stay vertical, the gripper stops 40 mm high, and only the cap ends up between the pads.
+            return dict(point=c + [0, 0, half_h - 0.040 + up], half=float(g.size[0]), dir=None, signed=False,
+                        open=GRIP_OPEN, descend_clear=0.014)
+        if obj == "mug":
+            post = m.geom("mug_handle_post")
+            pc = d.geom_xpos[post.id]
+            return dict(point=np.array([pc[0], pc[1], pc[2] - float(post.size[2]) + 0.004 + up]),
+                        half=CONTACT["handle_half"], dir=R[:2, 1] / np.linalg.norm(R[:2, 1]), signed=False, open=0.6,
+                        descend_clear=0.014)
+        if obj == "plate":
+            rr = self.info.params["plate_r"] - CONTACT["rim_half"]
+            return dict(point=c + [rr, 0, half_h + 0.002 + up], half=CONTACT["rim_half"], dir=np.array([1.0, 0.0]),
+                        signed=False, open=0.5, descend_clear=0.010)
+        if obj in ("fork", "spoon"):
+            ends = self.grasp_points(obj)
+            p = ends[0] if point is None else min(ends, key=lambda e: np.linalg.norm(e - np.asarray(point)))
+            other = d.body("spoon" if obj == "fork" else "fork").xpos
+            across = R[:2, 1] / np.linalg.norm(R[:2, 1])
+            if across @ (other[:2] - c[:2]) < 0:     # moving finger goes into the gap between the two pieces
+                across = -across
+            return dict(point=np.array([p[0], p[1], c[2] - 0.003 + up]), half=0.005, dir=across,
+                        signed=self.drawer_open() > 0.03 and c[2] < 0.03, open=0.1)
+        raise ValueError(obj)
 
     def grasp_points(self, obj):
         if obj in ("fork", "spoon"):
@@ -319,7 +510,10 @@ class DinnerTableEnv:
         return {o: self.data.body(o).xpos.copy() for o in OBJECTS}
 
     def proprio(self):
-        return np.concatenate([self.arm_q(a) for a in ARMS]).astype(np.float32)
+        q = np.concatenate([self.arm_q(a) for a in ARMS])
+        if self.rl.get("joint_noise_std"):
+            q = q + self._rl_rng.normal(0.0, self.rl["joint_noise_std"], q.shape)
+        return q.astype(np.float32)
 
     def images(self):
         if self._renderer is None:
@@ -327,8 +521,20 @@ class DinnerTableEnv:
         out = {}
         for c in self.cameras:
             self._renderer.update_scene(self.data, c)
-            out[c] = self._renderer.render().copy()
+            out[c] = self._camera_effects(self._renderer.render().copy())
         return out
+
+    def _camera_effects(self, img):
+        rl = self.rl
+        if not (rl.get("camera_noise_std") or rl.get("camera_blur_prob") or self._exposure != 1.0):
+            return img
+        x = img.astype(np.float32) * self._exposure
+        if rl.get("camera_blur_prob") and self._rl_rng.random() < rl["camera_blur_prob"]:
+            p = np.pad(x, ((1, 1), (1, 1), (0, 0)), mode="edge")
+            x = sum(p[i:i + x.shape[0], j:j + x.shape[1]] for i in range(3) for j in range(3)) / 9.0
+        if rl.get("camera_noise_std"):
+            x = x + self._rl_rng.normal(0.0, rl["camera_noise_std"], x.shape)
+        return np.clip(np.rint(x), 0, 255).astype(np.uint8)
 
     def render_frame(self, cam="demo", hw=(480, 640)):
         if not isinstance(self._video_renderer, dict):
@@ -360,6 +566,8 @@ class DinnerTableEnv:
             return self.held_by(arg) is not None
         if goal == "poured":
             return self.poured > 0.8
+        if goal == "poured_particles":      # at least 0.8 s of droplets, at least 80 % of them into the mug
+            return self.pour_emitted >= 0.8 * CONTROL_HZ and self.pour_captured >= 0.8 * self.pour_emitted
         if goal == "upright":
             z = self.data.body(arg).xmat.reshape(3, 3)[:, 2]
             return z[2] > 0.9

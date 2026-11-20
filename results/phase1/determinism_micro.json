@@ -1,0 +1,61 @@
+{
+ "inference CPU threads=default": {
+  "repeats_per_request": 30,
+  "requests": 2,
+  "distinct_outputs_per_input": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "deterministic": true
+ },
+ "inference CPU threads=1": {
+  "repeats_per_request": 30,
+  "requests": 2,
+  "distinct_outputs_per_input": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "deterministic": true
+ },
+ "inference CPU threads=4": {
+  "repeats_per_request": 30,
+  "requests": 2,
+  "distinct_outputs_per_input": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "deterministic": true
+ },
+ "inference GPU.0 threads=default": {
+  "repeats_per_request": 30,
+  "requests": 2,
+  "distinct_outputs_per_input": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "deterministic": true
+ },
+ "render": {
+  "same_state_20_renders_distinct": 1,
+  "two_envs_equal": true,
+  "after_40_steps_20_renders_distinct": 1,
+  "two_envs_equal_after_steps": true,
+  "states_equal_after_steps": true
+ }
+}

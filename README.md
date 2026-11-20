@@ -8,9 +8,9 @@
 
 <img src="docs/images/episode.gif" width="560" alt="Full episode: drawer, plate, spoon, fork hand-over, pour, tidy-up"/>
 
-| Scripted skills, seeds 0–9 | Held-out seeds 10–19 | Learned plate + mug picks | OpenVINO INT8 vs PyTorch |
+| Poses from cameras (CNN), set-down pour, test seeds 1000–1099 | Same seeds, ground-truth poses, set-down pour | Learned plate + mug picks | OpenVINO INT8 vs PyTorch |
 |:---:|:---:|:---:|:---:|
-| **10 / 10** full task | **7 / 10** full task | **5 / 10** full task | **1.35 ms · 5.2× faster** |
+| **89 / 100** full task | **84 / 100** full task | **16 / 30** over 3 runs | **1.35 ms · 5.2× faster** |
 
 </div>
 
@@ -18,10 +18,15 @@
 
 ### Highlights
 
-- **The other arm really holds the mug while one arm pours** — the brief's own example. Arm B grips the mug by
-  its handle and turns it out of the pourer's path; arm A tilts the bottle over it.
+- **Object poses from the cameras.** A CNN regresses each object's x, y and yaw from the 240×320 overhead and
+  front images, and the scripted skills act on those estimates. With it the full task succeeds on **89 / 100** unseen
+  test seeds, against 84 / 100 with poses read from the simulator ([results table](docs/RESULTS.md)).
+- **Headline pour mode: set-down.** In the headline numbers arm B sets the mug down at the pour spot, moves clear,
+  and re-grasps it after arm A has poured. The original mode, where arm B holds the mug by its handle during the
+  pour (the brief's own example), still runs by default, but it succeeds less often: 47 / 100 dev seeds with
+  ground-truth poses, against 89 / 100 for set-down (`results/perception/`).
 - **The learned policy completes whole tables.** With learned plate and mug picks (OpenVINO INT8 on the Intel iGPU),
-  5 of 10 randomized seeds finish all 7 sub-goals.
+  about half of the randomized seeds finish all 7 sub-goals (16 of 30 episodes over three runs of seeds 0–9).
 - **The plan repairs itself.** The executor remembers goals it has achieved and re-plans when a later action undoes
   one (e.g. the drawer is bumped shut).
 - **Fast on Intel.** INT8 policy inference in 1.35 ms on the CPU (5.2× PyTorch); the whole
@@ -44,7 +49,7 @@ step against what the cameras and simulator actually show, and repairs anything 
 <tr>
 <td align="center"><img src="docs/images/moment_drawer.png" width="260"/><br/><b>1 · Open the drawer</b><br/><sub>arm A pulls the knob; cutlery is inside</sub></td>
 <td align="center"><img src="docs/images/moment_handoff.png" width="260"/><br/><b>2 · Hand-over</b><br/><sub>arm B passes the fork to arm A across the midline</sub></td>
-<td align="center"><img src="docs/images/moment_pour.png" width="260"/><br/><b>3 · Two-arm pour</b><br/><sub>B holds the mug by its handle, A tilts the bottle</sub></td>
+<td align="center"><img src="docs/images/moment_pour.png" width="260"/><br/><b>3 · Two-arm pour</b><br/><sub>held mode: B holds the mug by its handle, A tilts the bottle (the headline runs set the mug down instead)</sub></td>
 </tr>
 <tr>
 <td align="center"><img src="docs/images/scene_start.png" width="260"/><br/><b>Start</b></td>
@@ -55,24 +60,93 @@ step against what the cameras and simulator actually show, and repairs anything 
 
 ## Results
 
+### Headline: perception-driven pipeline (set-down pour)
+
+Legacy scene, weld-assist grasps, scripted skills acting on poses estimated from the overhead and front cameras.
+Every row says where its poses came from and which pour mode it used. The full table, with sub-goal rates and the
+development history, is in [docs/RESULTS.md](docs/RESULTS.md) (`python scripts/results_table.py`, from
+`results/perception/`).
+
+| Poses | Pour mode | Seeds | Full-task success | Notes |
+|---|---|---|---|---|
+| **Perception (CNN)** | **set-down** | **1000–1099 (test, run once)** | **89 / 100** (81–94 %) | the headline; drawer open 100 %, poured 91 %, bottle put back 93 %, mug placed 97 % |
+| Ground truth | set-down | 1000–1099 (test, run once) | 84 / 100 (76–90 %) | same seeds and code; one episode (1072) hit the wall-clock limit |
+| Perception (CNN) | set-down | 400–499 (dev) | 86 / 100 (78–91 %) | step-2 gate: within 5 points of ground truth and ≥ 75 %, passed |
+| Ground truth | set-down | 400–499 (dev) | 89 / 100 (81–94 %) | |
+| Ground truth | held | 400–499 (dev) | 47 / 100 (38–57 %) | arm B holds the mug during the pour; poured 59 % |
+
+On the test seeds perception scores 5 points above ground truth. The intervals overlap widely, so this does not
+show that perception is better: the two runs simply fail on different seeds. With ground-truth poses, seed 1012 failed
+after 23 retries and seed 1072 hit the 1200 s wall-clock limit. What it does show is that, on these seeds,
+perception costs nothing measurable.
+
+What makes perception work here (details in `perception/estimator.py`):
+- **Objects on the table**: the CNN estimate, refreshed when a pick starts.
+- **The held bottle**: the gripper's forward kinematics times a grasp offset calibrated on training seeds
+  (`perception/calibrate_grasp.py` → `perception/grasp_offsets.json`, spout within 3.2 mm at p90). The CNN's estimate
+  at grasp time put the spout 9–12 mm off and the pour missed the mug.
+- **The drawer**: shut at reset, and its opening follows the gripper that pulls it. If it has to be opened again,
+  the estimator assumes it was pushed shut.
+- **Still privileged**: whether a gripper holds something, and the executor's success checks (see
+  [docs/PARTS_LIST.md](docs/PARTS_LIST.md), "What the simulation does not yet cover").
+
+### Earlier results: held pour, ground-truth poses
+
 <img src="docs/images/subgoal_success.png" width="820" alt="Sub-goal success per executor"/>
+
+Every row in this table uses the **held** pour and poses read from the simulator.
 
 | Executor | Seeds | Full-task success | Notes |
 |---|---|---|---|
-| Scripted bimanual skills + closed-loop executor | 0–9 | **10 / 10 (100 %)** | seeds used during development |
-| Scripted bimanual skills + closed-loop executor | 10–19 (held out) | **7 / 10 (70 %)** | every sub-goal ≥ 80 % |
-| Learned ACT-Lite for **all** picks (INT8, Intel iGPU) + scripted rest | 0–9 | **2 / 10 (20 %)** | policy solved **86 %** of its 50 picks with no expert fallback |
-| Learned ACT-Lite for **plate + mug** picks (default) | 0–9 | **5 / 10 (50 %)** | policy solved **80 %** of its 20 picks alone; drawer stays open in 10/10; bottle placed in 6/10 |
+| Scripted bimanual skills + closed-loop executor | 0–9 | **10 / 10** (72–100 %) | seeds used during development |
+| Scripted bimanual skills + closed-loop executor | 10–19 | **9 / 10** (60–98 %) | failure: seed 17 (pour) |
+| Scripted bimanual skills + closed-loop executor | 1000–1029 (30 unseen) | **28 / 30** (79–98 %) | failures: seeds 1004 (bottle put-back), 1012 (pour, bottle, mug) |
+| Learned ACT-Lite for **all** picks (INT8, Intel iGPU) + scripted rest | 0–9, three runs | 5, 5 and 8 of 10; **18 / 30** pooled | outcome changed between runs on 4 of 10 seeds |
+| Learned ACT-Lite for **plate + mug** picks (default) | 0–9, three runs | 6, 5 and 5 of 10; **16 / 30** pooled | policy solved 16 of its 20 picks alone in the first run |
 
-**What the learned-policy row tells us.** The policy picks objects reliably, but its approach paths are less precise
-than the planner's. Near the drawer it often bumps the drawer shut, and around the bottle it knocks things over. The
-executor detects and repairs some of this, but not all. So by default the policy handles picks in open space (plate,
-mug), and the scripted skills handle picks in cluttered areas (cutlery in the drawer, the tall bottle).
-With this split, full-task success rises from 20 % to 50 %; the remaining failures are mostly the bottle not being
-put back upright after the pour.
-`--policy-objects all` reproduces the all-picks row.
+Percent ranges are Wilson 95 % intervals. All rows come from `results/baseline/` (`REPORT.md` there is generated by
+`python tasks.py baseline`). They were measured with earlier code than the headline section. The held pour on dev seeds
+400–499 succeeds 47 / 100 (`results/perception/eval_expert_truth_legacy_dev.json`, commit 4e8a5ed).
+
+**What the learned-policy rows tell us.** The policy picks objects reliably, but its approach paths are less precise
+than the planner's: near the drawer it can bump the drawer shut, and around the bottle it knocks things over. The
+executor detects and repairs some of this, but not all. By default the policy handles picks in open space (plate,
+mug) and the scripted skills handle the cluttered ones (cutlery in the drawer, the tall bottle).
+
+**These runs are not repeatable, and ten seeds cannot separate the two settings.** The scripted rows repeat exactly;
+the learned-policy rows do not, on the iGPU or on the CPU. An earlier version of this table reported 2 / 10 for all
+picks and 5 / 10 for plate + mug and concluded that the split helps; the repeated runs above do not support that.
+`--policy-objects all` runs the all-picks setting.
 
 Sub-goals checked: drawer open · plate / spoon / fork / mug / bottle on target (mug and bottle upright) · poured.
+
+### Phases 1–2: friction-only grasps and a learned pick on the harder scene
+
+Details, commands and caveats are in `CHANGELOG.md`; numbers come from `results/phase1/` and `results/phase2/`.
+
+**Contact grasps (Phase 1).** `--grasp contact` removes the weld for a friction pinch; `--scene v2` holds the object
+changes it needs. Per-object grasp trials, 100 seeds each, test split 1000–1099, run once (placed out of 100):
+plate 99, bottle 69, mug 100, spoon 0, fork 0 with contact; with the weld assist on v2: 100, 89, 100, 80, 100.
+Cutlery does not survive a shake with friction alone. Scripted expert, full task, test split: weld assist 66/100
+(56–75 %), contact with the fork on the weld 65/100 (55–74 %), contact only 9/100 (5–16 %).
+
+**Scripted expert, 50 dev seeds, hybrid contact grasp, v2, nominal realism (Phase 2, one configuration):**
+**22 / 50 = 44 %** (31–58 %). Main failures: spoon 18, mug 14, bottle 13, pour 12, plate 10 episodes.
+
+**Learned pick on v2 (Phase 2): target not met.** First-attempt pick success on dev seeds 400–499, 100 per object:
+
+| Policy | Expert seeds | Plate | Mug |
+|---|---|---|---|
+| Existing policy (legacy statistics) | – | 0 % | 10 % |
+| Fine-tuned, recipe E | 81 | 8 % (4–15) | 31 % (23–41) |
+| Fine-tuned, recipe F | 101 | 20 % (13–29) | 33 % (25–43) |
+| Target (legacy-clean level) | – | 100 % | 52 % |
+
+The existing checkpoint's normalisation statistics treat joint 4 as constant (std 0.001) and are about 200× off on
+v2, which is part of why it fails there; fine-tuning keeps its statistics except for that joint (`--restat 4`). More
+expert data helped the plate and not the mug. DAgger, recovery data and SmolVLA were not run, and collection stopped
+at 101 of the planned 300 expert seeds because of memory limits on this machine, so this is a limitation, not a
+negative result for the approach.
 
 ### Robustness: every seed is a different scene
 
@@ -96,20 +170,24 @@ friction, object size (±15 %), mug shape (cylinder / box), light intensity and 
 | OpenVINO | iGPU | INT8 | 2.56 ms | 2.63 ms | 390.6 | 596 | 2.7× |
 
 - Batch 1: two 96×128 camera images, joint state and instruction tokens in; a 20 × 12 action chunk out.
-- **INT8 accuracy:** after NNCF quantization, outputs stay within 0.043 of PyTorch (FP16: 0.0004).
+- **Output accuracy vs PyTorch** (12 real demo frames, normalised action units, `results/baseline/ir_parity.json`):
+  FP32 matches (0.000 on CPU, ≤ 0.014 on iGPU). INT8 has a median per-frame maximum deviation of 0.16 and a worst
+  frame of 1.93. **FP16 on the CPU device is correct only on the first inference after compile** (0.0004), then
+  deviates by up to 3.1; FP16 on the iGPU is fine (≤ 0.015). Treat the CPU FP16 latency row as a timing only.
 - **Closed loop:** the INT8 model on the iGPU averaged 6.6 ms per inference, well within the 250 ms re-planning
   period (20 Hz control, re-plan every 5 steps).
 - **Real time:** one MuJoCo control step (25 physics sub-steps) takes 1.5 ms and rendering both cameras takes
   1.9 ms, so simulation, perception and policy together run well over 10× faster than real time.
-- **Variance:** numbers above are from an idle, plugged-in run. Earlier runs on a busier laptop were 2–4× slower
-  across the board (PyTorch 24.7 ms vs INT8 2.87 ms, 8.6×), with the same ranking: INT8 on CPU is always fastest.
+- **Variance:** numbers above are from an idle, plugged-in run (`results/benchmark.json`); a re-run two months later
+  (`results/baseline/benchmark.json`) gave PyTorch 8.45 ms and CPU INT8 1.61 ms, the same 5.2×.
 - **No NPU numbers:** this laptop has no NPU. On a Core Ultra Series 2/3 machine, the same script benchmarks the
   NPU automatically.
 
 ### Learned policy training
-- **Data:** 300 expert episodes (seeds 100–399, separate from the evaluation seeds), giving 117,383 frames of picks.
+- **Data:** 300 expert episodes (seeds 100–399, separate from the evaluation seeds; see `results/SPLITS.md`), giving 117,383 frames of picks.
 - **Training:** ACT-Lite (1.61 M parameters), 20 epochs on an RTX 4060 Laptop GPU, about 65 min.
-- **Result:** best validation L1 was **0.0499** (normalized joint targets), reached at epoch 8.
+- **Result:** best validation L1 was **0.0499** (normalized joint targets), reached at epoch 8. This is the
+legacy-scene model; the v2 fine-tunes are in the Phases 1–2 section.
 
 ## How it works
 
@@ -134,6 +212,10 @@ flowchart LR
 - **Complementary action (pour).** Arm B slides the mug to the pouring spot and rotates it so the handle is out of
   arm A's path, then holds it steady. Arm A carries the bottle along a clear path and tilts it in stages (40° → 90°).
   IK solves directly for the spout position, and the bottle comes in high and from A's side so it never hits the mug.
+  With `--pour-release` (the **set-down** mode, used for the headline numbers), arm B sets the mug down at the
+  pour spot, lets go and lifts away along −y, so its wrist does not push the drawer shut. Arm A pours, and arm B
+  re-grasps the mug afterwards. `--safe-retreat` also moves the arm sideways after the bottle put-back, so the swing
+  home does not knock the bottle over.
 - **Sharing the workspace.** Only one arm moves inside the shared area at a time. Tall objects are carried along
   raised, straight paths. A friction detent keeps the drawer open.
 
@@ -208,8 +290,22 @@ python -m deploy.benchmark --models models/act_pick_fp32.xml models/act_pick_fp1
 python scripts/evaluate.py --seeds 0-9 --policy models/act_pick_int8.xml --device GPU \
        --policy-objects plate,mug --out results/eval_policy_int8.json
 
+# perception pipeline (headline: set-down pour); the CNN is trained by perception/train.py
+python -m perception.calibrate_grasp --seeds 100-119 --workers 6        # training seeds only
+python scripts/evaluate.py --seeds 1000-1099 --perception models/perception/posenet_legacy.pt \
+       --pour-release --safe-retreat --held calibrated --drawer-repair shut \
+       --out results/perception/test_perception_calibrated_setdown_legacy.json
+python scripts/evaluate.py --seeds 1000-1099 --pour-release --safe-retreat \
+       --out results/perception/test_expert_truth_setdown_legacy.json      # same seeds, ground-truth poses
+python scripts/results_table.py                                           # writes docs/RESULTS.md
+
 # submission video and README figures
-python scripts/make_submission_video.py --videos videos --eval results/eval_expert.json --out videos/submission.mp4
+python scripts/evaluate.py --seeds 1000-1009 --perception models/perception/posenet_legacy.pt \
+       --pour-release --safe-retreat --held calibrated --drawer-repair shut --videos videos/perception_setdown_test \
+       --out results/perception/video_perception_calibrated_setdown_test_1000-1009.json
+python scripts/make_submission_video.py --videos videos/perception_setdown_test \
+       --eval results/perception/video_perception_calibrated_setdown_test_1000-1009.json \
+       --summary results/perception/test_perception_calibrated_setdown_legacy.json --out videos/submission_perception_setdown.mp4
 python scripts/make_readme_media.py --out docs/images
 ```
 
@@ -225,13 +321,21 @@ python scripts/make_readme_media.py --out docs/images
   two arms still collide physically.
 - **Pouring is geometric.** There is no fluid simulation. A pour counts when the bottle is tilted more than 55° with
   its spout above the mug rim for at least 0.8 s.
-- **Learned vs scripted.** The learned policy covers the *pick* skill only. Place, hand-over, pour and drawer opening
+- **Learned vs scripted.** On the v2 scene with contact grasps the learned pick is below the target (plate 20 %,
+  mug 33 % first-attempt on dev, against 100 % and 52 %; see Phases 1–2 above), so the scripted skills remain the
+  reliable path there. The learned policy covers the *pick* skill only. Place, hand-over, pour and drawer opening
   are scripted, and the two are reported separately above.
 - **Language.** The planner is a rule-based grammar (tested on the default instruction and paraphrases in
   `planner/language.py`). An OpenVINO-GenAI LLM back-end with the same plan schema is stubbed in but was not
   evaluated for this submission.
+- **Perception scope.** The CNN was trained on MuJoCo renders only, and it missed its own accuracy gate (grasp-point
+  p95 of 13.8 mm for the mug and about 27–29 mm for the cutlery, against a 6 mm target; `results/perception/gate_step1_legacy.json`).
+  The success rates above were reached despite that error, with the executor's retries. The checks, and knowing whether a gripper holds
+  something, still read the simulator. The held-bottle grasp offset is a simulation calibration. The hardware
+  needed and the remaining gaps are in [docs/PARTS_LIST.md](docs/PARTS_LIST.md).
 - **Hardware.** Benchmarks ran on an i9-13900HX laptop, not a Core Ultra system, so there are no NPU numbers.
-- **Next steps.** Replace the grasp assist with friction-only grasps, evaluate an INT4 LLM planner on OpenVINO GenAI,
+- **Next steps.** Collect the remaining expert seeds plus recovery data and run DAgger for the v2 pick (Phase 2
+  stopped at 101 seeds); make friction-only grasps work for cutlery and the bottle put-back, evaluate an INT4 LLM planner on OpenVINO GenAI,
   train place and hand-over skills, add a collision-aware loss or more demos near the drawer, evaluate on 30+ unseen
   seeds, and fine-tune SmolVLA / Pi0.5 on the same LeRobot-style data.
 

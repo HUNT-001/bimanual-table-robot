@@ -1,0 +1,193 @@
+{
+ "seed": 1,
+ "device": "GPU",
+ "threads": null,
+ "concurrent": false,
+ "comparisons": [
+  {
+   "run": 1,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 2,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 3,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 4,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 5,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 6,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 7,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 8,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 9,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 10,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 11,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 12,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 13,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 14,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 15,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 16,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 17,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 18,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  },
+  {
+   "run": 19,
+   "first_divergent_call": null,
+   "step": null,
+   "cause": "identical"
+  }
+ ],
+ "render": "noshadow",
+ "max_steps": 600,
+ "objects": "all",
+ "n_runs": 20,
+ "n_diverged": 0,
+ "gl": [
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60"
+ ],
+ "success": [
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false
+ ],
+ "n_calls": [
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47
+ ]
+}

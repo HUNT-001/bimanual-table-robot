@@ -29,9 +29,13 @@ def main():
     ap.add_argument("--device", default="CPU")
     ap.add_argument("--policy-objects", default="plate,mug", help="comma list or 'all'")
     ap.add_argument("--json", default=None)
+    ap.add_argument("--grasp", choices=["assist", "contact"], default="assist",
+                    help="assist: weld on close (default); contact: friction-only pinch (implies --scene v2)")
+    ap.add_argument("--scene", choices=["legacy", "v2"], default="legacy")
+    ap.add_argument("--timeout", type=float, default=1200.0, help="wall-clock seconds per episode (0 = none)")
     args = ap.parse_args()
 
-    env = DinnerTableEnv(args.seed)
+    env = DinnerTableEnv(args.seed, grasp=args.grasp, scene=args.scene)
     plan = RuleParser().parse(args.instruction)
     print(f"seed={args.seed}\ninstruction: {args.instruction}\nplan:")
     for i, st in enumerate(plan):
@@ -46,13 +50,14 @@ def main():
         env.model.light_castshadow[:] = 0
     hw = (args.video_height, args.video_height * 4 // 3)
     vw = VideoWriter(args.video, args.instruction, args.seed, every=args.video_every, hw=hw) if args.video else None
-    ex = Executor(env, policy=policy, frame_cb=vw.on_step if vw else None,
+    ex = Executor(env, policy=policy, frame_cb=vw.on_step if vw else None, timeout_s=args.timeout or None,
                   policy_objects="all" if args.policy_objects == "all" else tuple(args.policy_objects.split(",")))
     res = ex.run(plan, args.instruction)
     if vw:
         vw.finish(env, res)
     print(json.dumps({"seed": res.seed, "success": res.success, "subgoals": res.subgoals,
-                      "sim_steps": res.sim_steps, "wall_s": round(res.wall_s, 1)}, indent=1))
+                      "sim_steps": res.sim_steps, "wall_s": round(res.wall_s, 1),
+                      "timed_out": res.timed_out}, indent=1))
     if args.json:
         with open(args.json, "w") as f:
             json.dump({"seed": res.seed, "success": res.success, "subgoals": res.subgoals,

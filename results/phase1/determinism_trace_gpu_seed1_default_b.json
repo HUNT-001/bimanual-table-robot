@@ -1,0 +1,363 @@
+{
+ "seed": 1,
+ "device": "GPU",
+ "threads": null,
+ "concurrent": false,
+ "comparisons": [
+  {
+   "run": 1,
+   "first_divergent_call": 36,
+   "step": 548,
+   "cause": "rendering: same joint state, different images",
+   "image_diff": {
+    "overhead": {
+     "pixels": 0,
+     "of": 12288,
+     "max_abs": 0,
+     "rows": null,
+     "cols": null
+    },
+    "front": {
+     "pixels": 2,
+     "of": 12288,
+     "max_abs": 1,
+     "rows": [
+      40,
+      41
+     ],
+     "cols": [
+      50,
+      52
+     ]
+    }
+   }
+  },
+  {
+   "run": 2,
+   "first_divergent_call": 35,
+   "step": 543,
+   "cause": "rendering: same joint state, different images",
+   "image_diff": {
+    "overhead": {
+     "pixels": 0,
+     "of": 12288,
+     "max_abs": 0,
+     "rows": null,
+     "cols": null
+    },
+    "front": {
+     "pixels": 14,
+     "of": 12288,
+     "max_abs": 1,
+     "rows": [
+      28,
+      47
+     ],
+     "cols": [
+      13,
+      78
+     ]
+    }
+   }
+  },
+  {
+   "run": 3,
+   "first_divergent_call": 37,
+   "step": 553,
+   "cause": "rendering: same joint state, different images",
+   "image_diff": {
+    "overhead": {
+     "pixels": 0,
+     "of": 12288,
+     "max_abs": 0,
+     "rows": null,
+     "cols": null
+    },
+    "front": {
+     "pixels": 2,
+     "of": 12288,
+     "max_abs": 1,
+     "rows": [
+      40,
+      41
+     ],
+     "cols": [
+      50,
+      52
+     ]
+    }
+   }
+  },
+  {
+   "run": 4,
+   "first_divergent_call": 37,
+   "step": 553,
+   "cause": "rendering: same joint state, different images",
+   "image_diff": {
+    "overhead": {
+     "pixels": 0,
+     "of": 12288,
+     "max_abs": 0,
+     "rows": null,
+     "cols": null
+    },
+    "front": {
+     "pixels": 11,
+     "of": 12288,
+     "max_abs": 1,
+     "rows": [
+      28,
+      41
+     ],
+     "cols": [
+      50,
+      78
+     ]
+    }
+   }
+  },
+  {
+   "run": 5,
+   "first_divergent_call": 35,
+   "step": 543,
+   "cause": "rendering: same joint state, different images",
+   "image_diff": {
+    "overhead": {
+     "pixels": 0,
+     "of": 12288,
+     "max_abs": 0,
+     "rows": null,
+     "cols": null
+    },
+    "front": {
+     "pixels": 11,
+     "of": 12288,
+     "max_abs": 1,
+     "rows": [
+      28,
+      41
+     ],
+     "cols": [
+      50,
+      78
+     ]
+    }
+   }
+  },
+  {
+   "run": 6,
+   "first_divergent_call": 37,
+   "step": 553,
+   "cause": "rendering: same joint state, different images",
+   "image_diff": {
+    "overhead": {
+     "pixels": 0,
+     "of": 12288,
+     "max_abs": 0,
+     "rows": null,
+     "cols": null
+    },
+    "front": {
+     "pixels": 11,
+     "of": 12288,
+     "max_abs": 1,
+     "rows": [
+      28,
+      41
+     ],
+     "cols": [
+      50,
+      78
+     ]
+    }
+   }
+  },
+  {
+   "run": 7,
+   "first_divergent_call": 35,
+   "step": 543,
+   "cause": "rendering: same joint state, different images",
+   "image_diff": {
+    "overhead": {
+     "pixels": 0,
+     "of": 12288,
+     "max_abs": 0,
+     "rows": null,
+     "cols": null
+    },
+    "front": {
+     "pixels": 11,
+     "of": 12288,
+     "max_abs": 1,
+     "rows": [
+      28,
+      41
+     ],
+     "cols": [
+      50,
+      78
+     ]
+    }
+   }
+  },
+  {
+   "run": 8,
+   "first_divergent_call": 35,
+   "step": 543,
+   "cause": "rendering: same joint state, different images",
+   "image_diff": {
+    "overhead": {
+     "pixels": 0,
+     "of": 12288,
+     "max_abs": 0,
+     "rows": null,
+     "cols": null
+    },
+    "front": {
+     "pixels": 4,
+     "of": 12288,
+     "max_abs": 1,
+     "rows": [
+      36,
+      41
+     ],
+     "cols": [
+      1,
+      52
+     ]
+    }
+   }
+  },
+  {
+   "run": 9,
+   "first_divergent_call": 38,
+   "step": 558,
+   "cause": "rendering: same joint state, different images",
+   "image_diff": {
+    "overhead": {
+     "pixels": 0,
+     "of": 12288,
+     "max_abs": 0,
+     "rows": null,
+     "cols": null
+    },
+    "front": {
+     "pixels": 1,
+     "of": 12288,
+     "max_abs": 1,
+     "rows": [
+      38,
+      38
+     ],
+     "cols": [
+      28,
+      28
+     ]
+    }
+   }
+  },
+  {
+   "run": 10,
+   "first_divergent_call": 35,
+   "step": 543,
+   "cause": "rendering: same joint state, different images",
+   "image_diff": {
+    "overhead": {
+     "pixels": 0,
+     "of": 12288,
+     "max_abs": 0,
+     "rows": null,
+     "cols": null
+    },
+    "front": {
+     "pixels": 2,
+     "of": 12288,
+     "max_abs": 1,
+     "rows": [
+      41,
+      41
+     ],
+     "cols": [
+      56,
+      60
+     ]
+    }
+   }
+  },
+  {
+   "run": 11,
+   "first_divergent_call": 39,
+   "step": 563,
+   "cause": "rendering: same joint state, different images",
+   "image_diff": {
+    "overhead": {
+     "pixels": 0,
+     "of": 12288,
+     "max_abs": 0,
+     "rows": null,
+     "cols": null
+    },
+    "front": {
+     "pixels": 12,
+     "of": 12288,
+     "max_abs": 1,
+     "rows": [
+      28,
+      41
+     ],
+     "cols": [
+      65,
+      103
+     ]
+    }
+   }
+  }
+ ],
+ "render": "default",
+ "max_steps": 600,
+ "objects": "all",
+ "n_runs": 12,
+ "n_diverged": 11,
+ "gl": [
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60",
+  "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2 | 4.6.0 NVIDIA 610.60"
+ ],
+ "success": [
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false
+ ],
+ "n_calls": [
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47,
+  47
+ ]
+}

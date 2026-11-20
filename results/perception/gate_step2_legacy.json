@@ -1,0 +1,2172 @@
+{
+ "passed": false,
+ "rule": "perception >= truth - 5 points and >= 75% on the same seeds",
+ "pour_mode": "set-down",
+ "n": 100,
+ "truth": {
+  "file": "results/perception/eval_expert_truth_setdown_legacy_dev.json",
+  "k": 89,
+  "rate": 0.89,
+  "ci95": [
+   0.8136870342543766,
+   0.9374580367058064
+  ],
+  "code": {
+   "commit": "5964368",
+   "modified": []
+  }
+ },
+ "perception": {
+  "file": "results/perception/eval_perception_setdown_legacy_dev.json",
+  "k": 54,
+  "rate": 0.54,
+  "ci95": [
+   0.4426486024827802,
+   0.6343919176157
+  ],
+  "code": {
+   "commit": "ed37915",
+   "modified": []
+  },
+  "model": "models/perception/posenet_legacy.pt",
+  "drawer": "kinematic"
+ },
+ "gap_points": 35.0,
+ "both_succeed": 50,
+ "truth_only": [
+  403,
+  404,
+  405,
+  406,
+  410,
+  411,
+  418,
+  426,
+  436,
+  437,
+  440,
+  442,
+  445,
+  446,
+  448,
+  449,
+  451,
+  453,
+  454,
+  455,
+  460,
+  464,
+  466,
+  467,
+  469,
+  473,
+  474,
+  475,
+  478,
+  479,
+  482,
+  485,
+  486,
+  487,
+  489,
+  491,
+  497,
+  498,
+  499
+ ],
+ "perception_only": [
+  400,
+  417,
+  430,
+  435
+ ],
+ "subgoal_rates": {
+  "truth": {
+   "bottle_placed": 0.93,
+   "drawer_open": 1.0,
+   "fork_placed": 0.99,
+   "mug_placed": 0.91,
+   "plate_placed": 1.0,
+   "poured": 0.94,
+   "spoon_placed": 0.99
+  },
+  "perception": {
+   "bottle_placed": 0.75,
+   "drawer_open": 0.91,
+   "fork_placed": 1.0,
+   "mug_placed": 0.88,
+   "plate_placed": 1.0,
+   "poured": 0.75,
+   "spoon_placed": 1.0
+  }
+ },
+ "drawer_audit": {
+  "n_releases": 171,
+  "abs_err_mm_median": 8.299999999999997,
+  "abs_err_mm_max": 23.4
+ },
+ "lost_by_perception": {
+  "403": {
+   "first_failure": "arm A place the bottle on its spot",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.13
+    ],
+    [
+     "spoon",
+     1.45
+    ],
+    [
+     "fork",
+     1.62
+    ],
+    [
+     "mug",
+     1.66
+    ],
+    [
+     "bottle",
+     1.94
+    ],
+    [
+     "bottle",
+     172.47
+    ],
+    [
+     "bottle",
+     106.56
+    ],
+    [
+     "bottle",
+     88.18
+    ],
+    [
+     "bottle",
+     91.77
+    ],
+    [
+     "bottle",
+     90.48
+    ],
+    [
+     "bottle",
+     78.58
+    ],
+    [
+     "bottle",
+     53.3
+    ],
+    [
+     "bottle",
+     94.93
+    ]
+   ]
+  },
+  "404": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     1.12
+    ],
+    [
+     "spoon",
+     2.78
+    ],
+    [
+     "fork",
+     2.77
+    ],
+    [
+     "mug",
+     11.8
+    ],
+    [
+     "bottle",
+     1.47
+    ],
+    [
+     "bottle",
+     187.39
+    ],
+    [
+     "bottle",
+     175.87
+    ],
+    [
+     "bottle",
+     137.26
+    ],
+    [
+     "bottle",
+     130.3
+    ],
+    [
+     "bottle",
+     133.43
+    ],
+    [
+     "bottle",
+     138.08
+    ],
+    [
+     "bottle",
+     100.25
+    ],
+    [
+     "bottle",
+     98.56
+    ]
+   ]
+  },
+  "405": {
+   "first_failure": "arm B place the mug on its spot",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.77
+    ],
+    [
+     "spoon",
+     2.07
+    ],
+    [
+     "fork",
+     4.87
+    ],
+    [
+     "mug",
+     17.48
+    ],
+    [
+     "bottle",
+     1.26
+    ],
+    [
+     "mug",
+     45.06
+    ],
+    [
+     "mug",
+     45.41
+    ],
+    [
+     "mug",
+     45.6
+    ],
+    [
+     "mug",
+     62.58
+    ],
+    [
+     "mug",
+     63.53
+    ],
+    [
+     "mug",
+     144.03
+    ],
+    [
+     "mug",
+     46.95
+    ],
+    [
+     "mug",
+     45.63
+    ]
+   ]
+  },
+  "406": {
+   "first_failure": "arm B place the mug on its spot",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.51
+    ],
+    [
+     "spoon",
+     2.68
+    ],
+    [
+     "fork",
+     0.86
+    ],
+    [
+     "mug",
+     1.75
+    ],
+    [
+     "bottle",
+     1.01
+    ],
+    [
+     "mug",
+     12.21
+    ],
+    [
+     "mug",
+     139.71
+    ],
+    [
+     "mug",
+     141.23
+    ],
+    [
+     "mug",
+     130.63
+    ],
+    [
+     "mug",
+     130.28
+    ],
+    [
+     "mug",
+     168.04
+    ],
+    [
+     "mug",
+     143.19
+    ],
+    [
+     "mug",
+     144.08
+    ]
+   ]
+  },
+  "410": {
+   "first_failure": "arm A pick up the bottle",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.32
+    ],
+    [
+     "spoon",
+     3.02
+    ],
+    [
+     "fork",
+     1.21
+    ],
+    [
+     "mug",
+     1.11
+    ],
+    [
+     "bottle",
+     1.02
+    ],
+    [
+     "bottle",
+     236.48
+    ],
+    [
+     "bottle",
+     217.48
+    ],
+    [
+     "bottle",
+     243.34
+    ],
+    [
+     "bottle",
+     121.59
+    ],
+    [
+     "bottle",
+     151.26
+    ],
+    [
+     "bottle",
+     159.71
+    ],
+    [
+     "bottle",
+     126.97
+    ],
+    [
+     "bottle",
+     112.18
+    ],
+    [
+     "bottle",
+     79.57
+    ],
+    [
+     "bottle",
+     64.04
+    ],
+    [
+     "bottle",
+     64.45
+    ],
+    [
+     "bottle",
+     70.43
+    ],
+    [
+     "bottle",
+     65.82
+    ],
+    [
+     "bottle",
+     69.88
+    ]
+   ]
+  },
+  "411": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.78
+    ],
+    [
+     "spoon",
+     1.37
+    ],
+    [
+     "fork",
+     3.15
+    ],
+    [
+     "mug",
+     3.49
+    ],
+    [
+     "bottle",
+     0.38
+    ]
+   ]
+  },
+  "418": {
+   "first_failure": "arm A place the bottle on its spot",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     1.41
+    ],
+    [
+     "spoon",
+     3.26
+    ],
+    [
+     "fork",
+     1.66
+    ],
+    [
+     "mug",
+     1.85
+    ],
+    [
+     "bottle",
+     1.12
+    ],
+    [
+     "bottle",
+     249.63
+    ],
+    [
+     "bottle",
+     272.24
+    ],
+    [
+     "bottle",
+     299.26
+    ],
+    [
+     "bottle",
+     310.96
+    ],
+    [
+     "bottle",
+     313.04
+    ],
+    [
+     "bottle",
+     318.52
+    ],
+    [
+     "bottle",
+     309.92
+    ],
+    [
+     "bottle",
+     290.41
+    ]
+   ]
+  },
+  "426": {
+   "first_failure": "arm A place the bottle on its spot",
+   "attempts": 3,
+   "after_retry": true,
+   "observations": [
+    [
+     "plate",
+     1.82
+    ],
+    [
+     "spoon",
+     1.16
+    ],
+    [
+     "fork",
+     1.4
+    ],
+    [
+     "mug",
+     0.86
+    ],
+    [
+     "bottle",
+     1.36
+    ],
+    [
+     "bottle",
+     183.14
+    ],
+    [
+     "bottle",
+     103.53
+    ],
+    [
+     "bottle",
+     85.39
+    ],
+    [
+     "bottle",
+     89.26
+    ],
+    [
+     "bottle",
+     89.27
+    ],
+    [
+     "bottle",
+     84.51
+    ],
+    [
+     "bottle",
+     85.84
+    ],
+    [
+     "bottle",
+     85.84
+    ]
+   ]
+  },
+  "436": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     1.03
+    ],
+    [
+     "spoon",
+     1.21
+    ],
+    [
+     "fork",
+     3.03
+    ],
+    [
+     "mug",
+     6.24
+    ],
+    [
+     "bottle",
+     1.88
+    ],
+    [
+     "bottle",
+     46.23
+    ],
+    [
+     "bottle",
+     136.8
+    ],
+    [
+     "bottle",
+     801.32
+    ],
+    [
+     "bottle",
+     1272.94
+    ],
+    [
+     "bottle",
+     1741.98
+    ],
+    [
+     "bottle",
+     2142.24
+    ],
+    [
+     "bottle",
+     3099.49
+    ],
+    [
+     "bottle",
+     4028.91
+    ]
+   ]
+  },
+  "437": {
+   "first_failure": "arm A open the drawer [repair]",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.83
+    ],
+    [
+     "spoon",
+     2.57
+    ],
+    [
+     "fork",
+     2.64
+    ],
+    [
+     "mug",
+     3.58
+    ],
+    [
+     "bottle",
+     1.32
+    ]
+   ]
+  },
+  "440": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.42
+    ],
+    [
+     "spoon",
+     3.47
+    ],
+    [
+     "fork",
+     2.3
+    ],
+    [
+     "mug",
+     1.77
+    ],
+    [
+     "bottle",
+     1.57
+    ],
+    [
+     "mug",
+     4.0
+    ],
+    [
+     "mug",
+     3.65
+    ],
+    [
+     "mug",
+     3.79
+    ],
+    [
+     "mug",
+     3.9
+    ],
+    [
+     "mug",
+     3.77
+    ],
+    [
+     "mug",
+     8.28
+    ],
+    [
+     "mug",
+     3.75
+    ],
+    [
+     "mug",
+     4.1
+    ]
+   ]
+  },
+  "442": {
+   "first_failure": "arm A open the drawer [repair]",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.86
+    ],
+    [
+     "spoon",
+     2.46
+    ],
+    [
+     "fork",
+     2.34
+    ],
+    [
+     "mug",
+     6.71
+    ],
+    [
+     "bottle",
+     1.95
+    ],
+    [
+     "mug",
+     87.63
+    ],
+    [
+     "mug",
+     87.78
+    ],
+    [
+     "mug",
+     88.11
+    ],
+    [
+     "mug",
+     148.73
+    ],
+    [
+     "mug",
+     150.22
+    ],
+    [
+     "mug",
+     132.89
+    ],
+    [
+     "mug",
+     87.36
+    ],
+    [
+     "mug",
+     88.45
+    ]
+   ]
+  },
+  "445": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     2.41
+    ],
+    [
+     "spoon",
+     0.98
+    ],
+    [
+     "fork",
+     1.84
+    ],
+    [
+     "mug",
+     22.07
+    ],
+    [
+     "bottle",
+     0.36
+    ]
+   ]
+  },
+  "446": {
+   "first_failure": "arm B pick up the mug",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.09
+    ],
+    [
+     "spoon",
+     1.25
+    ],
+    [
+     "fork",
+     5.81
+    ],
+    [
+     "mug",
+     113.59
+    ],
+    [
+     "mug",
+     145.94
+    ],
+    [
+     "mug",
+     145.04
+    ],
+    [
+     "bottle",
+     0.81
+    ],
+    [
+     "mug",
+     3.23
+    ],
+    [
+     "bottle",
+     241.03
+    ],
+    [
+     "bottle",
+     188.84
+    ],
+    [
+     "bottle",
+     170.99
+    ],
+    [
+     "bottle",
+     173.53
+    ],
+    [
+     "bottle",
+     173.46
+    ],
+    [
+     "bottle",
+     183.94
+    ],
+    [
+     "bottle",
+     171.03
+    ],
+    [
+     "bottle",
+     171.37
+    ]
+   ]
+  },
+  "448": {
+   "first_failure": "arm A open the drawer [repair]",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.45
+    ],
+    [
+     "spoon",
+     3.09
+    ],
+    [
+     "fork",
+     0.87
+    ],
+    [
+     "mug",
+     1.35
+    ],
+    [
+     "bottle",
+     0.36
+    ]
+   ]
+  },
+  "449": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.55
+    ],
+    [
+     "spoon",
+     3.32
+    ],
+    [
+     "fork",
+     2.07
+    ],
+    [
+     "mug",
+     8.77
+    ],
+    [
+     "bottle",
+     0.23
+    ]
+   ]
+  },
+  "451": {
+   "first_failure": "arm A place the bottle on its spot",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.09
+    ],
+    [
+     "spoon",
+     3.14
+    ],
+    [
+     "fork",
+     4.65
+    ],
+    [
+     "mug",
+     2.29
+    ],
+    [
+     "bottle",
+     2.23
+    ],
+    [
+     "bottle",
+     64.61
+    ],
+    [
+     "bottle",
+     58.74
+    ],
+    [
+     "bottle",
+     59.92
+    ],
+    [
+     "bottle",
+     83.57
+    ],
+    [
+     "bottle",
+     87.43
+    ],
+    [
+     "bottle",
+     93.77
+    ],
+    [
+     "bottle",
+     67.1
+    ],
+    [
+     "bottle",
+     70.13
+    ]
+   ]
+  },
+  "453": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.63
+    ],
+    [
+     "spoon",
+     2.22
+    ],
+    [
+     "fork",
+     1.77
+    ],
+    [
+     "mug",
+     2.13
+    ],
+    [
+     "bottle",
+     0.44
+    ],
+    [
+     "bottle",
+     192.9
+    ],
+    [
+     "bottle",
+     171.92
+    ],
+    [
+     "bottle",
+     112.02
+    ],
+    [
+     "bottle",
+     107.59
+    ],
+    [
+     "bottle",
+     122.92
+    ],
+    [
+     "bottle",
+     139.19
+    ],
+    [
+     "bottle",
+     442.19
+    ],
+    [
+     "bottle",
+     555.72
+    ]
+   ]
+  },
+  "454": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.8
+    ],
+    [
+     "spoon",
+     1.95
+    ],
+    [
+     "fork",
+     1.6
+    ],
+    [
+     "mug",
+     1.78
+    ],
+    [
+     "bottle",
+     1.84
+    ]
+   ]
+  },
+  "455": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.76
+    ],
+    [
+     "spoon",
+     3.84
+    ],
+    [
+     "fork",
+     4.37
+    ],
+    [
+     "mug",
+     1.93
+    ],
+    [
+     "bottle",
+     3.23
+    ]
+   ]
+  },
+  "460": {
+   "first_failure": "arm A place the bottle on its spot",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     1.2
+    ],
+    [
+     "spoon",
+     2.4
+    ],
+    [
+     "fork",
+     3.01
+    ],
+    [
+     "mug",
+     1.14
+    ],
+    [
+     "bottle",
+     0.12
+    ],
+    [
+     "bottle",
+     188.57
+    ],
+    [
+     "bottle",
+     373.42
+    ],
+    [
+     "bottle",
+     733.0
+    ],
+    [
+     "bottle",
+     760.86
+    ],
+    [
+     "bottle",
+     782.98
+    ],
+    [
+     "bottle",
+     811.54
+    ],
+    [
+     "bottle",
+     831.16
+    ],
+    [
+     "bottle",
+     873.23
+    ]
+   ]
+  },
+  "464": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.38
+    ],
+    [
+     "spoon",
+     3.29
+    ],
+    [
+     "fork",
+     4.75
+    ],
+    [
+     "mug",
+     2.43
+    ],
+    [
+     "bottle",
+     1.79
+    ]
+   ]
+  },
+  "466": {
+   "first_failure": "arm A place the bottle on its spot",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.91
+    ],
+    [
+     "spoon",
+     2.38
+    ],
+    [
+     "fork",
+     1.09
+    ],
+    [
+     "mug",
+     1.39
+    ],
+    [
+     "bottle",
+     1.35
+    ],
+    [
+     "bottle",
+     218.96
+    ],
+    [
+     "bottle",
+     184.71
+    ],
+    [
+     "bottle",
+     122.84
+    ],
+    [
+     "bottle",
+     123.33
+    ],
+    [
+     "bottle",
+     123.24
+    ],
+    [
+     "bottle",
+     132.23
+    ],
+    [
+     "bottle",
+     122.94
+    ],
+    [
+     "bottle",
+     122.84
+    ]
+   ]
+  },
+  "467": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.91
+    ],
+    [
+     "spoon",
+     1.43
+    ],
+    [
+     "fork",
+     1.35
+    ],
+    [
+     "mug",
+     6.92
+    ],
+    [
+     "bottle",
+     1.2
+    ]
+   ]
+  },
+  "469": {
+   "first_failure": "arm A place the bottle on its spot",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.92
+    ],
+    [
+     "spoon",
+     3.79
+    ],
+    [
+     "fork",
+     5.26
+    ],
+    [
+     "mug",
+     1.17
+    ],
+    [
+     "bottle",
+     1.99
+    ],
+    [
+     "bottle",
+     206.8
+    ],
+    [
+     "bottle",
+     214.31
+    ],
+    [
+     "bottle",
+     172.74
+    ],
+    [
+     "bottle",
+     181.63
+    ],
+    [
+     "bottle",
+     185.24
+    ],
+    [
+     "bottle",
+     185.99
+    ],
+    [
+     "bottle",
+     195.84
+    ],
+    [
+     "bottle",
+     218.7
+    ]
+   ]
+  },
+  "473": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     1.15
+    ],
+    [
+     "spoon",
+     1.72
+    ],
+    [
+     "fork",
+     2.71
+    ],
+    [
+     "mug",
+     3.79
+    ],
+    [
+     "bottle",
+     2.47
+    ],
+    [
+     "bottle",
+     189.55
+    ],
+    [
+     "bottle",
+     125.69
+    ],
+    [
+     "bottle",
+     109.72
+    ],
+    [
+     "bottle",
+     115.12
+    ],
+    [
+     "bottle",
+     125.68
+    ],
+    [
+     "bottle",
+     146.29
+    ],
+    [
+     "bottle",
+     181.29
+    ],
+    [
+     "bottle",
+     235.64
+    ]
+   ]
+  },
+  "474": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.73
+    ],
+    [
+     "spoon",
+     1.75
+    ],
+    [
+     "fork",
+     1.72
+    ],
+    [
+     "mug",
+     12.43
+    ],
+    [
+     "bottle",
+     1.8
+    ],
+    [
+     "bottle",
+     119.37
+    ],
+    [
+     "bottle",
+     267.69
+    ],
+    [
+     "bottle",
+     456.09
+    ],
+    [
+     "bottle",
+     464.3
+    ],
+    [
+     "bottle",
+     464.13
+    ],
+    [
+     "bottle",
+     479.9
+    ],
+    [
+     "bottle",
+     457.15
+    ],
+    [
+     "bottle",
+     456.58
+    ]
+   ]
+  },
+  "475": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.32
+    ],
+    [
+     "spoon",
+     0.32
+    ],
+    [
+     "fork",
+     4.98
+    ],
+    [
+     "mug",
+     3.08
+    ],
+    [
+     "bottle",
+     1.6
+    ],
+    [
+     "bottle",
+     102.38
+    ],
+    [
+     "bottle",
+     133.93
+    ],
+    [
+     "bottle",
+     91.54
+    ],
+    [
+     "bottle",
+     90.49
+    ],
+    [
+     "bottle",
+     55.65
+    ],
+    [
+     "bottle",
+     73.8
+    ],
+    [
+     "bottle",
+     309.72
+    ],
+    [
+     "bottle",
+     644.23
+    ],
+    [
+     "mug",
+     65.54
+    ],
+    [
+     "mug",
+     66.11
+    ],
+    [
+     "mug",
+     67.54
+    ],
+    [
+     "mug",
+     56.11
+    ],
+    [
+     "mug",
+     52.51
+    ],
+    [
+     "mug",
+     14.97
+    ],
+    [
+     "mug",
+     68.98
+    ],
+    [
+     "mug",
+     73.38
+    ]
+   ]
+  },
+  "478": {
+   "first_failure": "arm A pick up the bottle",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     1.08
+    ],
+    [
+     "spoon",
+     2.04
+    ],
+    [
+     "fork",
+     1.55
+    ],
+    [
+     "mug",
+     1.3
+    ],
+    [
+     "bottle",
+     1.21
+    ],
+    [
+     "bottle",
+     323.61
+    ],
+    [
+     "bottle",
+     297.08
+    ],
+    [
+     "bottle",
+     294.38
+    ],
+    [
+     "bottle",
+     207.55
+    ],
+    [
+     "bottle",
+     146.47
+    ],
+    [
+     "bottle",
+     124.18
+    ],
+    [
+     "bottle",
+     97.91
+    ],
+    [
+     "bottle",
+     104.87
+    ],
+    [
+     "bottle",
+     92.49
+    ],
+    [
+     "bottle",
+     94.19
+    ],
+    [
+     "bottle",
+     94.37
+    ],
+    [
+     "bottle",
+     86.84
+    ],
+    [
+     "bottle",
+     105.24
+    ],
+    [
+     "bottle",
+     100.6
+    ]
+   ]
+  },
+  "479": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.13
+    ],
+    [
+     "spoon",
+     1.36
+    ],
+    [
+     "fork",
+     2.9
+    ],
+    [
+     "mug",
+     3.09
+    ],
+    [
+     "bottle",
+     0.43
+    ]
+   ]
+  },
+  "482": {
+   "first_failure": "arm A place the bottle on its spot",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.86
+    ],
+    [
+     "spoon",
+     1.87
+    ],
+    [
+     "fork",
+     0.83
+    ],
+    [
+     "mug",
+     2.05
+    ],
+    [
+     "bottle",
+     1.29
+    ],
+    [
+     "bottle",
+     249.08
+    ],
+    [
+     "bottle",
+     322.29
+    ],
+    [
+     "bottle",
+     1208.67
+    ],
+    [
+     "bottle",
+     1563.61
+    ],
+    [
+     "bottle",
+     1926.3
+    ],
+    [
+     "bottle",
+     2242.61
+    ],
+    [
+     "bottle",
+     2958.26
+    ],
+    [
+     "bottle",
+     3668.64
+    ]
+   ]
+  },
+  "485": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     1.21
+    ],
+    [
+     "spoon",
+     3.28
+    ],
+    [
+     "fork",
+     1.87
+    ],
+    [
+     "mug",
+     4.11
+    ],
+    [
+     "bottle",
+     1.15
+    ],
+    [
+     "bottle",
+     145.13
+    ],
+    [
+     "bottle",
+     165.0
+    ],
+    [
+     "bottle",
+     236.58
+    ],
+    [
+     "bottle",
+     201.43
+    ],
+    [
+     "bottle",
+     155.98
+    ],
+    [
+     "bottle",
+     123.94
+    ],
+    [
+     "bottle",
+     122.29
+    ],
+    [
+     "bottle",
+     186.08
+    ]
+   ]
+  },
+  "486": {
+   "first_failure": "arm B pick up the mug",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.75
+    ],
+    [
+     "spoon",
+     2.46
+    ],
+    [
+     "fork",
+     2.57
+    ],
+    [
+     "mug",
+     12.73
+    ],
+    [
+     "mug",
+     14.15
+    ],
+    [
+     "mug",
+     14.13
+    ],
+    [
+     "bottle",
+     1.65
+    ],
+    [
+     "mug",
+     10.58
+    ],
+    [
+     "mug",
+     13.29
+    ],
+    [
+     "mug",
+     13.29
+    ],
+    [
+     "mug",
+     13.28
+    ],
+    [
+     "mug",
+     13.83
+    ],
+    [
+     "mug",
+     13.85
+    ],
+    [
+     "mug",
+     12.19
+    ],
+    [
+     "mug",
+     13.26
+    ],
+    [
+     "mug",
+     13.28
+    ]
+   ]
+  },
+  "487": {
+   "first_failure": "arm B place the mug on its spot",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.84
+    ],
+    [
+     "spoon",
+     4.91
+    ],
+    [
+     "fork",
+     1.58
+    ],
+    [
+     "mug",
+     0.71
+    ],
+    [
+     "bottle",
+     0.79
+    ],
+    [
+     "mug",
+     51.81
+    ],
+    [
+     "mug",
+     62.63
+    ],
+    [
+     "mug",
+     54.1
+    ],
+    [
+     "mug",
+     48.35
+    ],
+    [
+     "mug",
+     39.22
+    ],
+    [
+     "mug",
+     37.59
+    ],
+    [
+     "mug",
+     41.7
+    ],
+    [
+     "mug",
+     31.62
+    ]
+   ]
+  },
+  "489": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.73
+    ],
+    [
+     "spoon",
+     2.59
+    ],
+    [
+     "fork",
+     2.76
+    ],
+    [
+     "mug",
+     3.26
+    ],
+    [
+     "bottle",
+     0.3
+    ],
+    [
+     "bottle",
+     190.75
+    ],
+    [
+     "bottle",
+     134.03
+    ],
+    [
+     "bottle",
+     734.17
+    ],
+    [
+     "bottle",
+     819.46
+    ],
+    [
+     "bottle",
+     890.74
+    ],
+    [
+     "bottle",
+     966.21
+    ],
+    [
+     "bottle",
+     1060.52
+    ],
+    [
+     "bottle",
+     1209.83
+    ],
+    [
+     "mug",
+     18.78
+    ],
+    [
+     "mug",
+     20.26
+    ],
+    [
+     "mug",
+     20.75
+    ],
+    [
+     "mug",
+     19.91
+    ],
+    [
+     "mug",
+     20.75
+    ],
+    [
+     "mug",
+     19.96
+    ],
+    [
+     "mug",
+     20.29
+    ],
+    [
+     "mug",
+     17.95
+    ]
+   ]
+  },
+  "491": {
+   "first_failure": "arm A open the drawer [repair]",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.45
+    ],
+    [
+     "spoon",
+     2.99
+    ],
+    [
+     "fork",
+     4.96
+    ],
+    [
+     "mug",
+     1.38
+    ],
+    [
+     "bottle",
+     2.01
+    ]
+   ]
+  },
+  "497": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.76
+    ],
+    [
+     "spoon",
+     3.12
+    ],
+    [
+     "fork",
+     1.3
+    ],
+    [
+     "mug",
+     22.3
+    ],
+    [
+     "bottle",
+     1.11
+    ],
+    [
+     "mug",
+     11.37
+    ],
+    [
+     "mug",
+     37.85
+    ],
+    [
+     "mug",
+     7.98
+    ],
+    [
+     "mug",
+     30.03
+    ],
+    [
+     "mug",
+     20.17
+    ],
+    [
+     "mug",
+     134.14
+    ],
+    [
+     "mug",
+     16.76
+    ],
+    [
+     "mug",
+     34.93
+    ]
+   ]
+  },
+  "498": {
+   "first_failure": "arm A pour from the bottle into the mug held by arm B",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     1.93
+    ],
+    [
+     "spoon",
+     1.8
+    ],
+    [
+     "fork",
+     0.27
+    ],
+    [
+     "mug",
+     7.54
+    ],
+    [
+     "bottle",
+     1.22
+    ],
+    [
+     "mug",
+     36.49
+    ],
+    [
+     "mug",
+     16.31
+    ]
+   ]
+  },
+  "499": {
+   "first_failure": "arm A place the bottle on its spot",
+   "attempts": 3,
+   "after_retry": false,
+   "observations": [
+    [
+     "plate",
+     0.55
+    ],
+    [
+     "spoon",
+     1.97
+    ],
+    [
+     "fork",
+     4.07
+    ],
+    [
+     "mug",
+     16.88
+    ],
+    [
+     "bottle",
+     3.63
+    ],
+    [
+     "bottle",
+     241.51
+    ],
+    [
+     "bottle",
+     295.67
+    ],
+    [
+     "bottle",
+     671.02
+    ],
+    [
+     "bottle",
+     916.73
+    ],
+    [
+     "bottle",
+     1181.87
+    ],
+    [
+     "bottle",
+     1442.53
+    ],
+    [
+     "bottle",
+     1976.73
+    ],
+    [
+     "bottle",
+     2532.26
+    ]
+   ]
+  }
+ },
+ "lost_after_retry": 1
+}

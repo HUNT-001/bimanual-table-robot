@@ -11,8 +11,13 @@ import numpy as np
 from sim.env import ARMS, GRIP_CLOSED, GRIP_OPEN, HOME, DinnerTableEnv
 
 LIFT = 0.07
+CARRY_SLOWDOWN = float(__import__("os").environ.get("BIMANUAL_CARRY_SLOWDOWN", 2.0))
+V2_DRAWER_PULL = 0.13   # assist pull on the v2 drawer (115 mm travel); the cutlery must clear the cabinet top
 TRANSIT_Z = 0.13
 CORRIDOR_X = 0.12
+# set-down pour: preferred handle direction (xy) of the released mug, towards arm B's base (-y). Pointing it along +x
+# (away from both robots) puts the holder's wrist against the open drawer's front, which pushes the drawer shut.
+POUR_RELEASE_DIR = (0.0, -1.0)
 
 
 def _minjerk(n):
@@ -26,6 +31,46 @@ class SkillLibrary:
         self.debug = False
         # commanded targets (what the position servos are tracking)
         self.cmd = {a: np.r_[HOME[:5], GRIP_OPEN] for a in ARMS}
+        # friction pinch: command the jaw to its limit so the (force-limited) servo squeezes thin parts too
+        self.grip_closed = -0.17 if env.grasp == "contact" else GRIP_CLOSED
+        # perception.estimator.Belief: when set, object poses come from the camera estimate (and, for held
+        # objects, from the pose estimated at grasp time) instead of the simulator state. Assist grasps only.
+        self.belief = None
+        self.pour_feedback = False      # correct the spout position from the measured arm pose before pouring
+        self.pour_release = False       # the holder puts the mug down at the spot and moves clear for the pour
+        self.pour_release_dir = POUR_RELEASE_DIR
+        self.safe_retreat = False       # after putting a mug/bottle down, move clear of it before going home
+
+    # ------------------------------------------------------- object state
+    def _pos(self, obj):
+        return self.belief.pose(obj)[0] if self.belief else self.env.data.body(obj).xpos.copy()
+
+    def _R(self, obj):
+        return self.belief.pose(obj)[1] if self.belief else self.env.data.body(obj).xmat.reshape(3, 3).copy()
+
+    def _grasp_point(self, obj):
+        return self.belief.grasp_point(obj) if self.belief else self.env.grasp_point(obj)
+
+    def grasp_points(self, obj):
+        return self.belief.grasp_points(obj) if self.belief else self.env.grasp_points(obj)
+
+    def _handle(self):
+        return self.belief.handle_pos() if self.belief else self.env.handle_pos()
+
+    def _site(self, obj, which):
+        return self.belief.site(obj, which) if self.belief else self.env.data.site(f"{obj}_{which}").xpos.copy()
+
+    def _tool_frame(self, arm, obj, which):
+        """A held object's site and z-axis in the gripper body frame."""
+        if not self.belief:
+            return self.env.tool_frame(arm, obj, f"{obj}_{which}")
+        d, bid = self.env.data, self.env.model.body(f"{arm}_gripper").id
+        R, p = d.xmat[bid].reshape(3, 3), d.xpos[bid]
+        return R.T @ (self._site(obj, which) - p), R.T @ self._R(obj)[:, 2]
+
+    def _observe(self, focus=None):
+        if self.belief:
+            self.belief.observe(focus)
 
     def reset(self):
         self.cmd = {a: np.r_[HOME[:5], GRIP_OPEN] for a in ARMS}
@@ -34,7 +79,9 @@ class SkillLibrary:
     def ctrl(self):
         return np.concatenate([self.cmd["A"], self.cmd["B"]])
 
-    def move(self, arm, q5, steps=25, grip=None):
+    def move(self, arm, q5, steps=25, grip=None, paced=True):
+        if paced and self.env.grasp == "contact" and self.env.held[arm] not in (None, "drawer")                 and self.env.held[arm] not in self.env.assist_objects:
+            steps = int(np.ceil(steps * CARRY_SLOWDOWN))    # a friction hold cannot take the weld's accelerations
         q0 = self.cmd[arm].copy()
         q1 = q0.copy(); q1[:5] = q5
         if grip is not None:
@@ -121,21 +168,71 @@ class SkillLibrary:
             r -= np.pi
         return float(np.clip(r, -1.5, 1.5))
 
+    def _closing_roll(self, arm, pos, direction, signed):
+        """Wrist roll that makes the jaws close along a world xy direction at `pos` (contact grasps)."""
+        env = self.env
+        q, _ = self._solve(arm, pos)
+        best = None
+        for r in np.linspace(-2.6, 2.7, 107):
+            qq = q.copy(); qq[4] = r
+            x = env.fk(arm, qq)[1][:2, 0]
+            a = float(x @ direction) / (np.linalg.norm(x) + 1e-9)
+            score = (a if signed else abs(a)) - 0.03 * abs(r - self.cmd[arm][4])
+            if best is None or score > best[0]:
+                best = (score, float(r))
+        return best[1]
+
+    def _contact_grasp(self, arm, obj, grasp_point=None, lift=LIFT):
+        """Friction pinch: put the object next to the fixed pad, align the jaws, close, check, lift."""
+        env = self.env
+        g = env.grasp_spec(obj, arm, grasp_point)
+        p = g["point"]
+        env.set_grasp_halfwidth(arm, g["half"])
+        yield from self.gripper(arm, g["open"], 4)
+        yield from self.move_pos(arm, p + [0, 0, LIFT], 30)
+        if g["dir"] is not None:
+            q = self.cmd[arm].copy(); q[4] = self._closing_roll(arm, p + [0, 0, LIFT], g["dir"], g["signed"])
+            yield from self.move(arm, q[:5], 10)
+            yield from self.move_pos(arm, p + [0, 0, LIFT], 8, transit=False)   # re-centre after the roll
+        wide = g.get("descend_clear")
+        if wide:   # come down with the part centred between the fingers, then shift it next to the fixed pad
+            env.set_grasp_halfwidth(arm, g["half"], clearance=wide)
+        yield from self.move_pos(arm, p, 20, transit=False)
+        if wide:
+            env.set_grasp_halfwidth(arm, g["half"])
+            yield from self.move_pos(arm, p, 8, transit=False)
+        yield from self.hold(3)
+        yield from self.gripper(arm, self.grip_closed, 12)
+        yield from self.hold(8)
+        if lift:
+            yield from self.move_pos(arm, p + [0, 0, lift], 20, transit=False)
+
     # ------------------------------------------------------------------ skills
     def pick(self, arm, obj, grasp_point=None):
         env = self.env
-        p = env.grasp_point(obj) if grasp_point is None else np.asarray(grasp_point)
+        env.intent[arm] = obj
+        if env.grasp == "contact" and obj not in env.assist_objects:
+            yield from self._contact_grasp(arm, obj, grasp_point)
+            return
+        env.set_grasp_halfwidth(arm, 0.005)     # no-op outside contact mode
+        if self.belief and obj in self.belief.trust_once:
+            self.belief.trust_once.discard(obj)     # just set down by an arm: keep the kinematic estimate once
+        elif self.belief and obj not in self.belief.inhand:
+            self._observe(obj)                  # fresh estimate at every attempt
+            if grasp_point is not None and obj in ("fork", "spoon"):   # same end, re-estimated
+                grasp_point = min(self.grasp_points(obj), key=lambda e: np.linalg.norm(e - np.asarray(grasp_point)))
+        p = self._grasp_point(obj) if grasp_point is None else np.asarray(grasp_point)
         env.intent[arm] = obj
         yield from self.gripper(arm, GRIP_OPEN, 4)
         yield from self.move_pos(arm, p + [0, 0, LIFT], 30)
         # align jaws with object yaw for elongated objects
         if obj in ("fork", "spoon"):
-            R = env.data.body(obj).xmat.reshape(3, 3)
+            R = self._R(obj)
             yaw = np.arctan2(R[1, 0], R[0, 0]) + np.pi / 2
             q = self.cmd[arm].copy(); q[4] = self._yaw_roll(arm, yaw)
             yield from self.move(arm, q[:5], 10)
         yield from self.move_pos(arm, p + [0, 0, 0.004], 20)
-        yield from self.gripper(arm, GRIP_CLOSED, 10)
+        yield from self.gripper(arm, self.grip_closed, 10)
         yield from self.hold(3)
         yield from self.move_pos(arm, p + [0, 0, LIFT], 20)
 
@@ -167,7 +264,7 @@ class SkillLibrary:
         if z_extra is None:
             z_extra = 0.001 if obj in ("mug", "bottle") else 0.004
         goal = np.array([xy[0], xy[1], self._bottom(obj) + z_extra])
-        ee_t = self.held_goal(arm, env.data.body(obj).xpos, goal, approach)
+        ee_t = self.held_goal(arm, self._pos(obj), goal, approach)
         q_final = self._last_q
         sp, R = env.fk(arm, q_final)
         if obj in ("fork", "spoon", "plate") or np.linalg.norm(env.fk(arm, q_final)[0] - ee_t) > 4e-3:
@@ -180,6 +277,16 @@ class SkillLibrary:
         yield from self.gripper(arm, GRIP_OPEN, 8)
         yield from self.hold(3)
         yield from self.move_pos(arm, env.ee_pos(arm) + [0, 0, LIFT], 15, transit=False)
+        if self.safe_retreat and obj in ("mug", "bottle"):
+            # The joint-space move home that follows descends while it swings, and the open jaws can clip the top
+            # of the tall object just released (a bottle released a few degrees off vertical rocks upright ~1 cm
+            # towards the arm and is then knocked over). Clear it horizontally first, towards the home position.
+            here = env.ee_pos(arm)
+            home_xy = env.fk(arm, HOME[:5])[0][:2]
+            d = home_xy - here[:2]
+            if np.linalg.norm(d) > 1e-6:
+                yield from self.move_pos(arm, np.r_[here[:2] + 0.07 * d / np.linalg.norm(d), here[2]], 15,
+                                         transit=False)
 
     def _bottom(self, obj):
         """Half-height of the object's main geom (distance from origin to its base)."""
@@ -188,14 +295,30 @@ class SkillLibrary:
 
     def open_drawer(self, arm, amount=0.11):
         env = self.env
-        h = env.handle_pos()
+        if self.belief:
+            self._observe()
+            self.belief.relocate_drawer()
+        h = self._handle()
         env.intent[arm] = "drawer"
+        if env.grasp == "contact":
+            yield from self._contact_grasp(arm, "drawer", lift=0)
+            start, ap, roll = env.ee_pos(arm), env.ee_axis(arm), self.cmd[arm][4]
+            amount = 0.105      # stop short of the 115 mm end stop: hitting it slides the cutlery into the wall
+            for k in range(1, 9):
+                yield from self.move_pos(arm, start + [-amount * k / 8, 0, 0], 6, approach=ap, roll=roll,
+                                         transit=False)
+            yield from self.hold(5)
+            yield from self.gripper(arm, 0.45, 8)
+            yield from self.move_pos(arm, env.ee_pos(arm) + [0, 0, LIFT], 15)
+            return
         yield from self.gripper(arm, GRIP_OPEN, 4)
         yield from self.move_pos(arm, h + [0, 0, LIFT], 30, roll=0.0)
         yield from self.move_pos(arm, h + [0, 0, 0.003], 20, roll=0.0)
-        yield from self.gripper(arm, GRIP_CLOSED, 10)
-        start = env.handle_pos()
+        yield from self.gripper(arm, self.grip_closed, 10)
+        start = self._handle() if self.belief else env.handle_pos()
         ap = env.ee_axis(arm)
+        if env.scene == "v2":
+            amount = V2_DRAWER_PULL
         for k in range(1, 9):
             yield from self.move_pos(arm, start + [-amount * k / 8, 0, 0.003], 6, approach=ap, roll=0.0,
                                      transit=False)
@@ -212,15 +335,18 @@ class SkillLibrary:
         # giver carries its grasp point to the meeting point, shifted to its own side
         yield from self.move_pos(giver, meet + [0, 0.03 * side, 0], 35)
         yield from self.hold(5)
-        free = lambda: max(env.grasp_points(obj), key=lambda p: np.linalg.norm(p - env.ee_pos(giver)))
-        R = env.data.body(obj).xmat.reshape(3, 3)
+        free = lambda: max(self.grasp_points(obj), key=lambda p: np.linalg.norm(p - env.ee_pos(giver)))
+        R = self._R(obj)
         yaw = np.arctan2(R[1, 0], R[0, 0]) + np.pi / 2
+        if env.grasp == "contact":   # the box fingers open wide enough to knock the piece out of the giver's hand
+            env.set_grasp_halfwidth(receiver, 0.005)
+            yield from self.gripper(receiver, 0.45, 4)
         yield from self.move_pos(receiver, free() + [0, 0, 0.05], 30)
         q = self.cmd[receiver].copy(); q[4] = self._yaw_roll(receiver, yaw)
         yield from self.move(receiver, q[:5], 8)
         yield from self.move_pos(receiver, free() + [0, 0, 0.002], 20, transit=False)
         # receiver closes first (attachment transfers), then the giver opens
-        yield from self.gripper(receiver, GRIP_CLOSED, 8)
+        yield from self.gripper(receiver, self.grip_closed, 8)
         yield from self.hold(3)
         yield from self.gripper(giver, GRIP_OPEN, 6)
         yield from self.move_pos(giver, env.ee_pos(giver) + [0, 0, 0.04], 10, transit=False)
@@ -231,13 +357,13 @@ class SkillLibrary:
         yield from self.move_pos(arm, np.asarray(pos), steps)
 
     def held_pose_goal(self, arm, obj, goal_xy, goal_z, rolls=np.linspace(-2.6, 2.7, 24), mode="handover",
-                       tilt_deg=90, local_ik=False):
+                       tilt_deg=90, local_ik=False, prefer_dir=None):
         """Joint goal that puts a held object's origin at (goal_xy, goal_z), choosing the wrist roll
         (object yaw) that is reachable and keeps the gripper farthest from the other arm's side."""
         env = self.env
         bid = env.model.body(f"{arm}_gripper").id
         R0 = env.data.xmat[bid].reshape(3, 3)
-        local = R0.T @ (env.data.body(obj).xpos - env.ee_pos(arm))
+        local = R0.T @ (self._pos(obj) - env.ee_pos(arm))
         goal = np.array([goal_xy[0], goal_xy[1], goal_z])
         other_base = env.data.xpos[env.model.body(f"{'B' if arm == 'A' else 'A'}_base").id]
         own_base = env.data.xpos[env.model.body(f"{arm}_base").id]
@@ -261,9 +387,11 @@ class SkillLibrary:
             dvec = sp[:2] - pred[:2]; dvec /= (np.linalg.norm(dvec) + 1e-9)
             cost = miss * 50 + err * 50
             if tilt_deg < 90:   # relative object tilt must stay small: check predicted object z-axis
-                zax = R @ (R0.T @ env.data.body(obj).xmat.reshape(3, 3)[:, 2])
+                zax = R @ (R0.T @ self._R(obj)[:, 2])
                 cost += 5.0 * max(0.0, 0.97 - zax[2])
-            if mode == "handover":
+            if prefer_dir is not None:     # gripper side (e.g. a mug handle) should point this way
+                cost += -float(dvec @ prefer_dir)
+            elif mode == "handover":
                 cost += abs(dvec @ rad_o) - 0.5 * (dvec @ to_own)
             else:
                 reach = np.linalg.norm(sp[:2] - own_base[:2])
@@ -277,7 +405,7 @@ class SkillLibrary:
         """Move a held object along a straight, raised path (object-space waypoints), turning the wrist
         to the requested roll while lifted in place so the object never sweeps sideways."""
         env = self.env
-        p0 = env.data.body(obj).xpos.copy()
+        p0 = self._pos(obj)
         # lift in place
         q, _, _ = self.held_pose_goal(arm, obj, p0[:2], z_high, rolls=[self.cmd[arm][4]], mode="reach", local_ik=True)
         yield from self.move(arm, q, 12)
@@ -306,18 +434,35 @@ class SkillLibrary:
         spot = env.info.params["targets"]["pour_spot"] if spot is None else spot
         # 1) holder brings the mug to the spot (resting on the table) and keeps holding it
         bottom = self._bottom(into)
-        q_hold, ee_hold, miss = self.held_pose_goal(holder, into, spot, bottom + 0.003, rolls=np.linspace(-2.6, 2.7, 36))
+        # released mug: leave the handle pointing away from the robots, where the holder can reach it again
+        pref = np.asarray(self.pour_release_dir) if self.pour_release else None
+        q_hold, ee_hold, miss = self.held_pose_goal(holder, into, spot, bottom + 0.003, rolls=np.linspace(-2.6, 2.7, 36),
+                                                    prefer_dir=pref)
         if self.debug:
             print(f"  [pour] holder goal miss={miss:.3f}")
         yield from self.carry_object(holder, into, spot, bottom + 0.003, q_hold[4], z_high=0.10)
         yield from self.move(holder, q_hold, 10)
         yield from self.hold(10)
+        if self.pour_release:
+            # At full tilt the pourer's gripper sits over the mug, where the holder's wrist rises from the handle:
+            # the two arms collide and the spout stops 2-3 cm short. The holder sets the mug down on the spot and
+            # moves clear; the executor's place step re-grasps it afterwards.
+            yield from self.gripper(holder, GRIP_OPEN, 8)
+            yield from self.move_pos(holder, env.ee_pos(holder) + [0, 0, 0.05], 10, transit=False)
+            yield from self.home(holder, 25)
+            if self.belief:
+                # The holder has just put the mug down, so its pose is the in-hand estimate carried by the arm's
+                # kinematics (2-10 mm on dev seeds 400-407). The CNN never saw this layout (mug beside the placed
+                # plate, an arm parked next to it) and is 40-200 mm off here, so the next mug pick starts from
+                # the kinematic estimate too; a retry looks again.
+                self.belief.sync()
+                self.belief.trust_once.add(into)
         # rim position of the mug once it rests on the table at the spot (measured xy, known height)
-        M = env.data.site(f"{into}_top").xpos.copy()
+        M = self._site(into, "top")
         M[:2] = 0.5 * (M[:2] + np.asarray(spot))
         M[2] = 2 * bottom
         # 2) pourer: staged tilt towards its own base, spout descending onto the rim
-        lp, la = env.tool_frame(pourer, obj, f"{obj}_spout")
+        lp, la = self._tool_frame(pourer, obj, "spout")
         base = env.data.xpos[env.model.body(f"{pourer}_base").id][:2]
         rad = (M[:2] - base) / np.linalg.norm(M[:2] - base)
         h0 = np.arctan2(-rad[1], -rad[0])
@@ -339,6 +484,26 @@ class SkillLibrary:
             q_prev = q
             yield from self.move(pourer, q, 12)
         yield from self.hold(10)
+        if self.pour_feedback:
+            # The loaded, outstretched arm sags under position control: the spout settles 2-3 cm from where the
+            # kinematic IK put it. Measure where the spout actually is (gripper pose from the joints plus the
+            # held-bottle estimate), move the commanded target by the error and solve again.
+            t = np.radians(stages[-1][0])
+            ax = [np.sin(t) * np.cos(h0), np.sin(t) * np.sin(h0), np.cos(t)]
+            tgt = M + [0, 0, stages[-1][1]]
+            cmd_tgt = tgt.copy()
+            for it in range(5):
+                err = tgt - self._site(obj, "spout")
+                if self.debug:
+                    print(f"  [pour] feedback {it}: spout error xy {np.linalg.norm(err[:2]) * 1000:.1f} mm, "
+                          f"z {err[2] * 1000:.1f} mm")
+                if np.linalg.norm(err[:2]) < 0.004 and abs(err[2]) < 0.008:
+                    break
+                cmd_tgt = cmd_tgt + err
+                q, pe, oe = env.ik_tool(pourer, lp, cmd_tgt, la, ax, q_seed=q_prev, local_only=True)
+                q_prev = q
+                yield from self.move(pourer, q, 8)
+                yield from self.hold(6)
         if self.debug:
             sp = env.data.site(f"{obj}_spout").xpos; mt = env.data.site(f"{into}_top").xpos
             bz = env.data.body(obj).xmat.reshape(3, 3)[:, 2]

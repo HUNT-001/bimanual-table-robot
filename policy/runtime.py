@@ -40,13 +40,20 @@ class TorchBackend(_Backend):
 
 
 class OpenVINOBackend(_Backend):
-    def __init__(self, xml, device="CPU", hint="LATENCY"):
+    def __init__(self, xml, device="CPU", hint="LATENCY", threads=None):
         import openvino as ov
         core = ov.Core()
         cfg = {"PERFORMANCE_HINT": hint}
+        if threads and device.startswith("CPU"):
+            cfg["INFERENCE_NUM_THREADS"] = int(threads)
         if device.startswith("GPU") or device.startswith("NPU"):
             cfg["CACHE_DIR"] = os.path.join(os.path.dirname(os.path.abspath(xml)), "ov_cache")
-        self.compiled = core.compile_model(xml, device, cfg)
+        try:
+            self.compiled = core.compile_model(xml, device, cfg)
+        except RuntimeError:
+            # parallel workers can race on a stale blob in the shared cache directory; compile without it
+            cfg.pop("CACHE_DIR", None)
+            self.compiled = core.compile_model(xml, device, cfg)
         self.req = self.compiled.create_infer_request()
         with open(os.path.splitext(xml)[0] + "_stats.json") as f:
             meta = json.load(f)
@@ -116,8 +123,8 @@ class ACTPolicy:
         return
 
 
-def load_policy(path, device="CPU"):
+def load_policy(path, device="CPU", threads=None):
     if path.endswith(".xml"):
-        return ACTPolicy(OpenVINOBackend(path, device))
+        return ACTPolicy(OpenVINOBackend(path, device, threads=threads))
     dev = {"CPU": "cpu", "GPU": "cuda"}.get(device, device)
     return ACTPolicy(TorchBackend(path, dev))

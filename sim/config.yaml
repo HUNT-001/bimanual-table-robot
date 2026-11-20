@@ -1,0 +1,97 @@
+# Single source for simulation parameters: domain-randomization ranges, contact-grasp physics and realism profiles.
+# Loaded by sim/config.py. Ranges are [low, high], sampled uniformly per seed (the midpoint when randomize=False).
+# Changing a range changes every scene, so results from before and after are not comparable; record the commit.
+
+randomization:
+  # lighting and background
+  sky_rgb: [0.1, 0.7]
+  floor_rgb: [0.1, 0.5]
+  table_rgb: [[0.45, 0.75], [0.3, 0.5], [0.15, 0.3]]
+  light_intensity: [0.4, 0.9]
+  light_xy: [-0.6, 0.6]            # m, key-light position
+  # friction (sliding coefficient)
+  table_friction: [0.6, 1.2]
+  object_friction: [0.7, 1.3]
+  # start positions, m (x away from the robots, y to arm A's side)
+  plate_xy: [[0.14, 0.18], [0.16, 0.21]]
+  bottle_xy: [[0.21, 0.24], [0.24, 0.29]]
+  mug_xy: [[0.16, 0.21], [-0.23, -0.15]]
+  mug_yaw: [-0.5, 0.5]             # rad, around the handle pointing at arm B
+  cutlery_dx: [-0.003, 0.003]      # m, inside the drawer
+  cutlery_y: [-0.015, 0.015]
+  cutlery_yaw: [-0.1, 0.1]
+  # size (scale factors on the nominal dimensions) and mass, kg
+  plate_scale: [0.85, 1.15]
+  plate_mass: [0.05, 0.15]
+  mug_radius_scale: [0.9, 1.1]
+  mug_height_scale: [0.9, 1.15]
+  mug_mass: [0.03, 0.12]
+  bottle_radius_scale: [0.9, 1.1]
+  bottle_height_scale: [0.9, 1.1]
+  bottle_mass: [0.04, 0.10]
+  bottle_green: [0.5, 0.9]
+  cutlery_mass: [0.01, 0.03]
+
+# Friction-grasp physics, used only with grasp="contact". Lengths in metres, gripper/jaw body frames.
+contact:
+  pad_friction: [1.6, 0.03, 0.002]   # sliding, torsional, rolling: a soft rubber pad as a patch contact
+  pad_condim: 6
+  pad_solref: [0.01, 1.0]
+  pad_solimp: [0.95, 0.99, 0.001, 0.5, 2]
+  # N*m torque limit of the gripper servo while squeezing: the 12 V Feetech STS3215 peak stall torque, 30 kg*cm =
+  # 2.94 N*m (datasheet and retailer listings, sources [1][2] in docs/sim_realism.md; it is also the default
+  # forcerange of the actuator class in so101.xml). The 7.4 V part stalls at 1.91 N*m (19.5 kg*cm). Until 2026-11-17
+  # this was 3.35, the per-joint override in the stock model, which is above the datasheet. A real servo cannot hold
+  # stall torque for long without overheating, so this is still an upper bound.
+  grip_force: 2.94
+  impratio: 10.0
+  face_x: 0.008            # inner pad face of each finger at jaw angle 0 (measured from the meshes)
+  tip_z: -0.104            # fingertip end along the gripper z axis
+  site_above_tip: 0.010    # the grasp site sits this far above the fingertips, on the pad
+  handle_half: 0.004       # mug handle post half-thickness (collides in v2)
+  rim_half: 0.002          # dish rim wall of the v2 plate
+  rim_height: 0.016
+
+# Pouring. There is no fluid. Two checks:
+#  * geometric (the task's `poured` sub-goal): tilt beyond tilt_deg with the spout above the rim (at most 10 cm) and
+#    within `spout_radius` of the mug axis, for 0.8 s. `inner_radius` (default since 2026-11-17) is the mug's inner
+#    radius, the mug radius minus a 2 mm wall; `legacy_4cm` is the earlier fixed 4 cm tolerance, which is about twice
+#    the inner radius, kept only to reproduce numbers from before that date.
+#  * strict (reported as `success_strict`, not the sub-goal): one ballistic droplet per control step while tilted;
+#    at least 0.8 s of droplets and at least 80 % of them must land inside the mug's inner radius. `outflow` is the
+#    droplet speed along the bottle axis at the spout and is assumed (0 = dripping straight down from the lip; about
+#    0.4 m/s corresponds to a 1 cm head of water). It was not tuned against the skill.
+pour:
+  tilt_deg: 55.0
+  outflow: 0.3
+  spout_radius: inner_radius
+
+# Actuator and sensor realism. "none" reproduces the idealised simulator and is the default.
+# Sources and how each effect is modelled: docs/sim_realism.md. Values marked (assumed) are not identified
+# against hardware.
+realism:
+  none: {}
+  nominal:
+    latency_steps: [1, 3]          # control latency in 50 ms control steps, drawn once per episode
+    velocity_limit: 4.7            # rad/s commanded-target slew limit
+    deadband: 0.0015               # rad; target changes smaller than this are not sent
+    backlash: 0.0087               # rad (0.5 deg) play when the commanded direction reverses
+    joint_noise_std: 0.002         # rad, on the joint readings returned to the policy
+    camera_noise_std: 2.0          # intensity levels (0-255), per pixel
+    camera_blur_prob: 0.2          # chance per frame of a 3x3 box blur
+    camera_exposure: [0.9, 1.1]    # gain, drawn once per episode
+    camera_jitter_mm: 5.0          # extrinsic position offset bound per axis, drawn once per episode
+    camera_jitter_deg: 2.0         # extrinsic rotation bound per axis, drawn once per episode
+  # The two halves of `nominal`, for attributing an effect to the actuators or to the sensors.
+  actuators_only:
+    latency_steps: [1, 3]
+    velocity_limit: 4.7
+    deadband: 0.0015
+    backlash: 0.0087
+  sensors_only:
+    joint_noise_std: 0.002
+    camera_noise_std: 2.0
+    camera_blur_prob: 0.2
+    camera_exposure: [0.9, 1.1]
+    camera_jitter_mm: 5.0
+    camera_jitter_deg: 2.0

@@ -1,0 +1,147 @@
+{
+ "openvino": "2026.3.1-22476-759c5a6ab8c-releases/2026/3",
+ "ckpt": "models/act_pick.pt",
+ "frames": "tests/fixtures/demo_frames.npz",
+ "n_frames": 12,
+ "unit": "normalised action (1.0 = one std of the training actions)",
+ "results": [
+  {
+   "model": "act_pick_fp32.xml",
+   "device": "CPU",
+   "first_call_max_dev": 1.1920928955078125e-06,
+   "max_dev": 1.1920928955078125e-06,
+   "median_of_frame_max_dev": 6.556510925292969e-07,
+   "mean_abs_dev": 1.1211849463658534e-07,
+   "first_frame_repeated_max_dev": 1.1920928955078125e-06,
+   "per_frame_max_dev": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "model": "act_pick_fp32.xml",
+   "device": "GPU.0",
+   "first_call_max_dev": 0.010790348052978516,
+   "max_dev": 0.013928413391113281,
+   "median_of_frame_max_dev": 0.0029668807983398438,
+   "mean_abs_dev": 0.0005014813020049284,
+   "first_frame_repeated_max_dev": 0.010790348052978516,
+   "per_frame_max_dev": [
+    0.01079,
+    0.00221,
+    0.00406,
+    0.00127,
+    0.00155,
+    0.00401,
+    0.003,
+    0.00315,
+    0.00294,
+    0.01393,
+    0.00227,
+    0.00283
+   ]
+  },
+  {
+   "model": "act_pick_fp16.xml",
+   "device": "CPU",
+   "first_call_max_dev": 0.00038367509841918945,
+   "max_dev": 3.1022579669952393,
+   "median_of_frame_max_dev": 1.3023461699485779,
+   "mean_abs_dev": 0.1512908215324084,
+   "first_frame_repeated_max_dev": 2.463253974914551,
+   "per_frame_max_dev": [
+    0.00038,
+    0.80088,
+    1.04657,
+    1.57739,
+    0.57633,
+    3.10226,
+    2.49817,
+    0.87238,
+    1.55812,
+    1.96702,
+    1.67245,
+    0.94775
+   ]
+  },
+  {
+   "model": "act_pick_fp16.xml",
+   "device": "GPU.0",
+   "first_call_max_dev": 0.008725166320800781,
+   "max_dev": 0.014904975891113281,
+   "median_of_frame_max_dev": 0.003164932131767273,
+   "mean_abs_dev": 0.0005074462969787419,
+   "first_frame_repeated_max_dev": 0.008725166320800781,
+   "per_frame_max_dev": [
+    0.00873,
+    0.00221,
+    0.00417,
+    0.00243,
+    0.00136,
+    0.00364,
+    0.00322,
+    0.00311,
+    0.00375,
+    0.0149,
+    0.00195,
+    0.00269
+   ]
+  },
+  {
+   "model": "act_pick_int8.xml",
+   "device": "CPU",
+   "first_call_max_dev": 0.3102865219116211,
+   "max_dev": 1.929687738418579,
+   "median_of_frame_max_dev": 0.16086311638355255,
+   "mean_abs_dev": 0.036282932987281434,
+   "first_frame_repeated_max_dev": 0.3102865219116211,
+   "per_frame_max_dev": [
+    0.31029,
+    0.30891,
+    0.02137,
+    0.01863,
+    0.01005,
+    0.10734,
+    0.21439,
+    0.018,
+    0.01732,
+    1.92969,
+    0.86372,
+    0.52079
+   ]
+  },
+  {
+   "model": "act_pick_int8.xml",
+   "device": "GPU.0",
+   "first_call_max_dev": 0.29111742973327637,
+   "max_dev": 1.9407460689544678,
+   "median_of_frame_max_dev": 0.14163045585155487,
+   "mean_abs_dev": 0.03641208431993922,
+   "first_frame_repeated_max_dev": 0.29111742973327637,
+   "per_frame_max_dev": [
+    0.29112,
+    0.29197,
+    0.01693,
+    0.01347,
+    0.01278,
+    0.05697,
+    0.22629,
+    0.01932,
+    0.02215,
+    1.94075,
+    0.85478,
+    0.52387
+   ]
+  }
+ ]
+}
