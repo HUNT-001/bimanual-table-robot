@@ -7,3 +7,4 @@ results/phase2/logs/
 models/phase2/
 
 models/perception/
+results/**/*.partial.jsonl
