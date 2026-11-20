@@ -74,7 +74,8 @@ def _run_seed(kw):
     if kw.get("perception"):
         from perception.estimator import Belief, Perceiver
         belief = Belief(env, Perceiver(kw["perception"], kw.get("perception_device")),
-                        drawer=kw.get("drawer", "kinematic"))
+                        drawer=kw.get("drawer", "kinematic"), drawer_repair=kw.get("drawer_repair", "cnn"),
+                        held=kw.get("held", "grasp"))
         ex.skills.belief = belief
         drawer_trace = []    # (believed, true) opening each time the drawer is let go of, to audit the estimate
         def _track(env_, text, _prev=[None], _cb=ex.frame_cb):
@@ -169,6 +170,12 @@ def main():
                     help="pour skill: the holder sets the mug down at the spot and moves clear (re-grasped after)")
     ap.add_argument("--safe-retreat", action="store_true",
                     help="after putting the mug or bottle down, move clear of it horizontally before going home")
+    ap.add_argument("--drawer-repair", default="cnn", choices=("cnn", "shut"),
+                    help="with --perception and --drawer kinematic: when the drawer must be re-opened, take the CNN's "
+                         "opening or assume it was pushed shut")
+    ap.add_argument("--held", default="grasp", choices=("grasp", "calibrated"),
+                    help="with --perception: a held object's pose is the pre-grasp estimate carried by the gripper, or "
+                         "(calibrated objects: the bottle) a fixed offset from perception/grasp_offsets.json")
     ap.add_argument("--drawer", default="kinematic", choices=("kinematic", "cnn"),
                     help="with --perception: drawer opening from the holding arm's kinematics (shut at reset) or the CNN")
     ap.add_argument("--pour-feedback", action="store_true",
@@ -195,7 +202,8 @@ def main():
                  no_msaa=a.no_msaa, assist_objects=assist, realism=a.realism,
                  stop_after_policy=a.stop_after_policy, perception=a.perception,
                  perception_device=a.perception_device, pour_release=a.pour_release,
-                 pour_feedback=a.pour_feedback, drawer=a.drawer, safe_retreat=a.safe_retreat) for s in seeds]
+                 pour_feedback=a.pour_feedback, drawer=a.drawer, safe_retreat=a.safe_retreat,
+                 drawer_repair=a.drawer_repair, held=a.held) for s in seeds]
     from scripts.env_info import code_revision
     code = code_revision()
     t0 = time.time()
@@ -225,6 +233,7 @@ def main():
         pour_feedback=a.pour_feedback, pour_mode=pour_mode(a.pour_release),
         pour_release_dir=list(POUR_RELEASE_DIR) if a.pour_release else None,
         drawer=a.drawer if a.perception else None, safe_retreat=a.safe_retreat,
+        drawer_repair=a.drawer_repair if a.perception else None, held=a.held if a.perception else None,
         success_rate=n_ok / len(results),
         success_ci95=list(wilson(n_ok, len(results))),
         n_timed_out=n_timeout, n_errors=n_error, timeout_s=a.timeout, max_sim_steps=a.max_sim_steps,
@@ -270,7 +279,8 @@ def main():
     md = [f"# Evaluation: {summary['policy']}  ({summary['n']} seeds)"
           + (f"  - learned picks: {a.policy_objects}" if a.policy else "") + tag, "",
           f"Pour mode: **{summary['pour_mode']}**"
-          + (f"  |  poses from perception ({a.perception}, drawer: {a.drawer})" if a.perception
+          + (f"  |  poses from perception ({a.perception}, drawer: {a.drawer}, repair: {a.drawer_repair}, "
+             f"held: {a.held})" if a.perception
              else "  |  poses from the simulator (ground truth)"), "",
           f"**Task success: {summary['success_rate'] * 100:.0f}%** (95% CI {summary['success_ci95'][0] * 100:.0f}-"
           f"{summary['success_ci95'][1] * 100:.0f}%)"
