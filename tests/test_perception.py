@@ -129,3 +129,20 @@ def test_belief_mug_handle_follows_the_mug_and_drawer_follows_the_gripper():
     b.observe()      # an observation does not overwrite the kinematic opening
     assert b.drawer_s == pytest.approx(np.clip(x0 - x1, 0, 0.2), abs=1e-9)
     b.close(); env.close()
+
+
+def test_calibrated_held_bottle_uses_the_grasp_offset():
+    from perception.estimator import Belief
+    from perception.oracle import OraclePerceiver
+    env = DinnerTableEnv(seed=20003)
+    b = Belief(env, OraclePerceiver(env), held="calibrated")
+    assert "bottle" in b.offsets and "mug" not in b.offsets
+    b.observe()
+    b.est["bottle"]["pos"] = b.est["bottle"]["pos"] + [0.03, 0, 0]     # a bad pre-grasp estimate is not carried
+    env.held["A"] = "bottle"
+    b.sync()
+    gp, gR = b._gripper("A")
+    np.testing.assert_allclose(b.site("bottle", "spout"), gp + gR @ b.offsets["bottle"]["site"], atol=1e-12)
+    np.testing.assert_allclose(b.pose("bottle")[0], gp + gR @ b.offsets["bottle"]["pos"], atol=1e-12)
+    env.held["A"] = None
+    b.close(); env.close()

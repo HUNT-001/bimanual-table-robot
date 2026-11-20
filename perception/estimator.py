@@ -10,11 +10,15 @@ post-condition checks of the executor.
 """
 from __future__ import annotations
 
+import json
+import os
 import time
 
 import numpy as np
 
 from .labels import IDX, Views
+
+GRASP_OFFSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "grasp_offsets.json")
 
 PLATE_Z = 0.006            # legacy plate body centre when resting (6 mm half-thickness): known geometry
 HANDLE_CLOSED = np.array([0.245, 0.0, 0.072])   # drawer handle site with the drawer shut (cabinet calibration)
@@ -51,11 +55,21 @@ class Perceiver:
 
 
 class Belief:
-    def __init__(self, env, perceiver: Perceiver, drawer="kinematic"):
+    def __init__(self, env, perceiver: Perceiver, drawer="kinematic", drawer_repair="cnn", held="grasp"):
         """drawer: "kinematic" -- the drawer is shut at reset (cabinet calibration) and only a gripper moves it, so
         the opening follows the holding gripper's forward kinematics; "cnn" -- the CNN's drawer_s output."""
-        assert drawer in ("kinematic", "cnn")
-        self.env, self.p, self.drawer_mode = env, perceiver, drawer
+        assert drawer in ("kinematic", "cnn") and drawer_repair in ("shut", "cnn")
+        self.env, self.p, self.drawer_mode, self.drawer_repair = env, perceiver, drawer, drawer_repair
+        # held="grasp": a held object keeps the pose estimated before the grasp, carried by the gripper.
+        # held="calibrated": objects in GRASP_OFFSETS (the bottle) sit at a fixed, calibrated pose in the gripper
+        # frame (perception/calibrate_grasp.py, training seeds); the others as for "grasp".
+        assert held in ("grasp", "calibrated")
+        self.held_mode = held
+        self.offsets = {}
+        if held == "calibrated":
+            with open(GRASP_OFFSETS) as f:
+                self.offsets = {o: dict(pos=np.array(e["pos"]), R=np.array(e["R"]), site=np.array(e["site"]))
+                                for o, e in json.load(f)["objects"].items()}
         self.views = Views(perceiver.hw, perceiver.cameras)
         self.est = {}           # obj -> dict(pos, R, extra)
         self.inhand = {}        # obj -> (arm, local pos, local R)
@@ -114,6 +128,9 @@ class Belief:
     # ----------------------------------------------------------- grasp events
     def attach(self, arm, obj):
         """The gripper has closed on `obj`: remember the believed pose in the gripper frame."""
+        if obj in self.offsets:
+            self.inhand[obj] = (arm, self.offsets[obj]["pos"].copy(), self.offsets[obj]["R"].copy())
+            return
         pw, Rw = self.pose(obj)
         p, R = self._gripper(arm)
         self.inhand[obj] = (arm, R.T @ (pw - p), R.T @ Rw)
@@ -151,6 +168,9 @@ class Belief:
 
     # ------------------------------------------------------ skill-level points
     def site(self, obj, which):
+        if obj in self.inhand and obj in self.offsets and (obj, which) == ("bottle", "spout"):
+            gp, gR = self._gripper(self.inhand[obj][0])
+            return gp + gR @ self.offsets[obj]["site"]
         p, R = self.pose(obj)
         e = self.est[obj]
         if obj == "mug" and which == "top":
@@ -181,9 +201,11 @@ class Belief:
 
     def relocate_drawer(self):
         """Opening the drawer again means something pushed it after the arm let go, which the kinematic estimate
-        cannot see: take the CNN's opening (from the last observe) instead."""
+        cannot see. drawer_repair="shut": assume it was pushed shut (on the 8 dev seeds whose repair failed in the
+        step-2 run it was open 0-13 mm, while the CNN said 42-62 mm; the weld catches within 30 mm).
+        drawer_repair="cnn": take the CNN's opening from the last observe."""
         if self.drawer_mode == "kinematic" and self.drawer_s > 0.01:
-            self.drawer_s = self.drawer_cnn
+            self.drawer_s = 0.0 if self.drawer_repair == "shut" else self.drawer_cnn
 
     def handle_pos(self):
         return HANDLE_CLOSED + np.array([-self.drawer_s, 0, 0])
