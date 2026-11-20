@@ -27,8 +27,10 @@ def shard_files(d):
     return [os.path.join(d, r["file"]) for r in sorted(rows, key=lambda r: r["index"])], sum(r["n"] for r in rows)
 
 
-def load_dir(d, max_n=None, pin=True):
-    """Concatenate the shards of `d` (up to max_n samples, whole shards) into torch uint8 / numpy arrays."""
+def load_dir(d, max_n=None, pin=False):
+    """Concatenate the shards of `d` (up to max_n samples, whole shards) into torch uint8 / numpy arrays.
+    Not pinned by default: the CUDA pinned allocator rounds up to a power of two (4.6 GB of images took 8 GB), and a
+    pageable copy of one batch is negligible next to a training step."""
     import torch
     files, n_all = shard_files(d)
     meta = json.load(open(os.path.join(d, "meta.json")))
