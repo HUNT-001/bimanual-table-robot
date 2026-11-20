@@ -62,6 +62,11 @@ def _run_seed(kw):
     ex = Executor(env, policy=policy, frame_cb=vw.on_step if vw else None, verbose=False,
                   policy_objects="all" if po == "all" else tuple(po.split(",")),
                   timeout_s=kw.get("timeout_s"), max_sim_steps=kw.get("max_sim_steps"))
+    belief = None
+    if kw.get("perception"):
+        from perception.estimator import Belief, Perceiver
+        belief = Belief(env, Perceiver(kw["perception"], kw.get("perception_device")))
+        ex.skills.belief = belief
     plan = RuleParser().parse(instruction)
     if kw.get("stop_after_policy"):
         # picks-only evaluation: end the episode after the last step the learned policy attempts. The task is then
@@ -74,7 +79,11 @@ def _run_seed(kw):
     if vw:
         vw.finish(env, res)
     p = env.info.params
-    out = dict(seed=seed, success=bool(res.success), subgoals={k: bool(v) for k, v in res.subgoals.items()},
+    perc = None
+    if belief is not None:
+        perc = dict(observations=belief.log, latency_ms=[round(x, 1) for x in belief.p.latency_ms])
+        belief.close()
+    out = dict(perception=perc, seed=seed, success=bool(res.success), subgoals={k: bool(v) for k, v in res.subgoals.items()},
                steps=[dict(text=s.text, ok=bool(s.ok), attempts=s.attempts, executor=s.policy) for s in res.steps],
                sim_time_s=res.sim_steps / 20.0, wall_s=round(res.wall_s, 1), suspended_s=round(res.suspended_s, 1),
                timed_out=res.timed_out, error=None,
@@ -126,6 +135,11 @@ def main():
     ap.add_argument("--stop-after-policy", action="store_true",
                     help="end each episode after the last learned-policy step (picks-only; task success is then "
                          "meaningless, read policy_first_try_by_object)")
+    ap.add_argument("--perception", default=None,
+                    help="object-pose CNN checkpoint: skills use its estimates instead of simulator object poses")
+    ap.add_argument("--perception-device", default=None, help="torch device for the CNN (default: cuda if present)")
+    ap.add_argument("--worker-gb", type=float, default=1.5,
+                    help="with --workers 0: RAM to reserve per worker when sizing the pool from free RAM")
     ap.add_argument("--out", default="results/eval.json")
     a = ap.parse_args()
     if a.grasp == "contact" and a.scene == "legacy":
@@ -133,12 +147,21 @@ def main():
         a.scene = "v2"
     assist = tuple(x for x in a.assist_objects.split(",") if x) if a.grasp == "contact" else ()
     seeds = parse_seeds(a.seeds)
+    if a.workers <= 0:      # size the pool from free RAM, keeping 2 GB for the system
+        from perception.sysutil import free_ram_gb
+        free = free_ram_gb() or 4.0
+        a.workers = max(1, min((os.cpu_count() or 2) // 2, int((free - 2.0) / a.worker_gb), len(seeds)))
+        print(f"free RAM {free:.1f} GB -> {a.workers} workers")
+    if a.perception:
+        from perception.sysutil import keep_awake
+        keep_awake(True)
     jobs = [dict(seed=s, instruction=a.instruction, policy=a.policy, device=a.device, videos=a.videos,
                  policy_objects=a.policy_objects, grasp=a.grasp, scene=a.scene, threads=a.threads,
                  timeout_s=a.timeout or None, max_sim_steps=a.max_sim_steps or None,
                  video_every=a.video_every, video_height=a.video_height, no_shadows=a.no_shadows,
                  no_msaa=a.no_msaa, assist_objects=assist, realism=a.realism,
-                 stop_after_policy=a.stop_after_policy) for s in seeds]
+                 stop_after_policy=a.stop_after_policy, perception=a.perception,
+                 perception_device=a.perception_device) for s in seeds]
     from scripts.env_info import code_revision
     code = code_revision()
     t0 = time.time()
@@ -152,7 +175,7 @@ def main():
         code=code, instruction=a.instruction, policy=a.policy or "scripted-expert", device=a.device, n=len(results),
         policy_objects=a.policy_objects if a.policy else None,
         grasp=a.grasp, scene=a.scene, policy_threads=a.threads, msaa=not a.no_msaa, assist_objects=list(assist),
-        realism=a.realism,
+        realism=a.realism, perception=a.perception, workers=a.workers,
         success_rate=n_ok / len(results),
         success_ci95=list(wilson(n_ok, len(results))),
         n_timed_out=n_timeout, n_errors=n_error, timeout_s=a.timeout, max_sim_steps=a.max_sim_steps,
