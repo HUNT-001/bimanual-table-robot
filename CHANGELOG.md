@@ -240,3 +240,41 @@ separated further.
 
 Open items: why the plate pick stays at 8–20 % while validation L1 is about 0.1; whether recovery data or DAgger
 closes it; the other statistics differences between legacy and v2 (joint stds differ by up to 2×).
+
+## Phase 3 — perception-driven pipeline (2026-11-20)
+
+A CNN (`perception/`, `models/perception/posenet_legacy.pt`) regresses object x, y and yaw from the 240×320 overhead
+and front renders, and the scripted skills act on those estimates. Legacy scene, weld-assist grasps. Splits: train
+100–399, dev 400–499, test 1000–1099. Full table: `docs/RESULTS.md` (`python scripts/results_table.py`). Every number
+below names its pour mode (*held*: arm B holds the mug during the pour; *set-down*: arm B sets it down, moves
+clear and re-grasps it) and its pose source.
+
+| Step | Result | Artifact |
+|---|---|---|
+| 1. Perception accuracy gate (median ≤ 3 mm, p95 ≤ 6 mm per object) | **failed**: plate and bottle pass; mug grasp p95 13.8 mm, fork 29.4, spoon 26.9. Accepted as a partial pass | `results/perception/gate_step1_legacy.json` |
+| Ground truth, held pour, dev | 47/100 (38–57 %); poured 59 % | `eval_expert_truth_legacy_dev.json` |
+| Ground truth, set-down pour + safe retreat, dev | 89/100 (81–94 %) | `eval_expert_truth_setdown_legacy_dev.json` |
+| 2. Perception, set-down, dev, first run | 54/100: gate **failed**; 38 of 39 losses happened before any retry | `eval_perception_setdown_legacy_dev.json`, `gate_step2_legacy.json` |
+| Perception, set-down, dev, calibrated held bottle + shut-drawer rule | 86/100 (78–91 %), 3 points below ground truth: gate **passed** | `eval_perception_calibrated_setdown_legacy_dev.json`, `gate_step2_calibrated_legacy.json` |
+| Test, run once, set-down: perception | **89/100** (81–94 %) | `test_perception_calibrated_setdown_legacy.json` |
+| Test, run once, set-down: ground truth | 84/100 (76–90 %), one wall-clock timeout (seed 1072) | `test_expert_truth_setdown_legacy.json` |
+
+Changes, each behind a flag whose default keeps the old behaviour:
+- `--pour-release`: the set-down pour. Arm B lifts away along −y after releasing the mug, because lifting along +x
+  pushed the drawer shut. `--safe-retreat`: after putting back the bottle or mug, the arm moves 7 cm toward its home
+  side before swinging home, which no longer knocks the bottle over.
+- Belief (`perception/estimator.py`): the mug handle is stored in the mug frame. `--drawer kinematic` (the default
+  with perception): the drawer starts shut and its opening follows the gripper that pulls it. `--drawer-repair shut`:
+  opening the drawer again assumes it was pushed shut. On the failing dev seeds it was open 0–13 mm, while the CNN
+  said 42–62 mm. An object an arm has just set down keeps its kinematic estimate for the next pick: the CNN was
+  38–200 mm off on the set-down mug, a layout it was not trained on.
+- `--held calibrated`: the held bottle's pose is the gripper's forward kinematics times a grasp offset measured on
+  training seeds 100–119 (`perception/calibrate_grasp.py`; spout deviation median 1.4 mm, p90 3.2 mm). The mug's
+  offset varies too much (spout p90 22 mm) and is not used. First, on the 19 dev seeds whose pour failed only with
+  perception, I checked the explanation: with the true held pose they poured on 18 of 19, against 0 of 19 with the
+  belief, which put the spout 8.9 mm off at the grasp and 12.1 mm off at full tilt. The true bottle drifted only
+  1.5 mm and 3° in the gripper after the weld.
+
+Not done: the perception CNN was not retrained, because none of the step-2 losses followed a retry. The strict
+droplet-pour metric is 0 % in every run. Whether a gripper holds something and the executor's checks still read the
+simulator. Hardware: `docs/PARTS_LIST.md`.
