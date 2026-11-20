@@ -115,6 +115,8 @@ def main(argv=None):
     ap.add_argument("--ram-frac", type=float, default=0.6, help="use at most this fraction of free RAM for images")
     ap.add_argument("--max-n", type=int, default=0)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--resume", action="store_true",
+                    help="continue from <out>.last.pt (written after every epoch) if it exists")
     ap.add_argument("--max-minutes", type=float, default=0, help="stop training after this long (0 = no limit)")
     a = ap.parse_args(argv)
     keep_awake(True)
@@ -166,8 +168,21 @@ def main(argv=None):
                    every_s=60)
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     best, history, step, t_train = None, [], 0, time.time()
-    stopped_early = False
-    for ep in range(a.epochs):
+    stopped_early, ep0, prev_min = False, 0, 0.0
+    last_path = os.path.splitext(a.out)[0] + ".last.pt"
+    if a.resume and os.path.exists(last_path):
+        ck = torch.load(last_path, map_location=dev, weights_only=False)
+        if ck["args"]["epochs"] != a.epochs or ck["n_train"] != len(tr_idx):
+            raise SystemExit(f"{last_path} was written with other settings; remove it or drop --resume")
+        model.load_state_dict(ck["state"]); opt.load_state_dict(ck["opt"]); sched.load_state_dict(ck["sched"])
+        scaler.load_state_dict(ck["scaler"]); gen.set_state(ck["gen"].cpu())
+        np.random.set_state(ck["np_rng"])
+        best, history, step, ep0 = ck["best"], ck["history"], ck["step"], ck["epoch"] + 1
+        prev_min = history[-1]["minutes"] if history else 0.0
+        hb.done0 = hb.done = step
+        print(f"resumed from {last_path} after epoch {ck['epoch']} (best so far {best})", flush=True)
+    t_train -= prev_min * 60
+    for ep in range(ep0, a.epochs):
         model.train()
         perm = torch.from_numpy(np.random.permutation(tr_idx))
         tot = dict(field=0.0, aux=0.0)
@@ -208,6 +223,11 @@ def main(argv=None):
             torch.save(dict(state=model.state_dict(), mu=mu, sd=sd, names=L.NAMES, k=a.k, width=a.width,
                             cameras=meta["cameras"], hw=meta["hw"], scene=meta["scene"], grasp=meta["grasp"],
                             epoch=ep, args=vars(a)), a.out)
+        tmp = last_path + ".tmp"
+        torch.save(dict(state=model.state_dict(), opt=opt.state_dict(), sched=sched.state_dict(),
+                        scaler=scaler.state_dict(), gen=gen.get_state(), np_rng=np.random.get_state(), best=best,
+                        history=history, step=step, epoch=ep, n_train=len(tr_idx), args=vars(a)), tmp)
+        os.replace(tmp, last_path)
         if stopped_early:
             print(f"stopping after epoch {ep}: --max-minutes reached", flush=True)
             break
