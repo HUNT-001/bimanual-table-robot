@@ -99,7 +99,7 @@ class Executor:
                 # if a hand-over follows, grasp the end on the arm's own side so the other end stays free;
                 # otherwise grasp the far end (keeps the wrist away from the robot's own base)
                 sign = 1 if arm == "A" else -1
-                gp = max(self.env.grasp_points(obj), key=lambda p: sign * p[1])
+                gp = max(self.skills.grasp_points(obj), key=lambda p: sign * p[1])
                 return S.pick(arm, obj, grasp_point=gp)
             return S.pick(arm, obj)
         if s == "place":
@@ -111,7 +111,7 @@ class Executor:
                 return iter(())
             if self.env.held[arm] != obj:
                 sign = 1 if arm == "A" else -1
-                gp = max(self.env.grasp_points(obj), key=lambda p: sign * p[1])
+                gp = max(self.skills.grasp_points(obj), key=lambda p: sign * p[1])
                 return self._chain(S.pick(arm, obj, grasp_point=gp), S.handoff(arm, step["other"], obj))
             return S.handoff(arm, step["other"], obj)
         if s == "pour":
@@ -138,6 +138,8 @@ class Executor:
                 self.record.append(dict(text=text, ctrl=ctrl.copy(), state=self.env.proprio(),
                                         images=self.env.images()))
             self.env.step(ctrl)
+            if self.skills.belief is not None:
+                self.skills.belief.sync()       # follow grasps, releases and hand-overs
             self._tick()
             n += 1
             if self.frame_cb:
