@@ -67,7 +67,10 @@ def _run_seed(kw):
         vw = VideoWriter(os.path.join(kw["videos"], f"seed_{seed:02d}.mp4"), instruction, seed,
                          every=kw.get("video_every", 2), hw=(kw.get("video_height", 480), kw.get("video_height", 480) * 4 // 3))
     po = kw.get("policy_objects", "plate,mug")
-    ex = Executor(env, policy=policy, frame_cb=vw.on_step if vw else None, verbose=False,
+    cb = vw.on_step if vw else None
+    if vw and kw.get("pour_release"):   # the video overlay names the set-down pour (the plan text stays as planned)
+        cb = lambda env_, text, _f=vw.on_step: _f(env_, text.replace("the mug held by arm", "the mug set down by arm"))
+    ex = Executor(env, policy=policy, frame_cb=cb, verbose=False,
                   policy_objects="all" if po == "all" else tuple(po.split(",")),
                   timeout_s=kw.get("timeout_s"), max_sim_steps=kw.get("max_sim_steps"))
     belief = None
