@@ -33,6 +33,8 @@ class SkillLibrary:
         # perception.estimator.Belief: when set, object poses come from the camera estimate (and, for held
         # objects, from the pose estimated at grasp time) instead of the simulator state. Assist grasps only.
         self.belief = None
+        self.pour_feedback = False      # correct the spout position from the measured arm pose before pouring
+        self.pour_release = False       # the holder puts the mug down at the spot and moves clear for the pour
 
     # ------------------------------------------------------- object state
     def _pos(self, obj):
@@ -337,7 +339,7 @@ class SkillLibrary:
         yield from self.move_pos(arm, np.asarray(pos), steps)
 
     def held_pose_goal(self, arm, obj, goal_xy, goal_z, rolls=np.linspace(-2.6, 2.7, 24), mode="handover",
-                       tilt_deg=90, local_ik=False):
+                       tilt_deg=90, local_ik=False, prefer_dir=None):
         """Joint goal that puts a held object's origin at (goal_xy, goal_z), choosing the wrist roll
         (object yaw) that is reachable and keeps the gripper farthest from the other arm's side."""
         env = self.env
@@ -369,7 +371,9 @@ class SkillLibrary:
             if tilt_deg < 90:   # relative object tilt must stay small: check predicted object z-axis
                 zax = R @ (R0.T @ self._R(obj)[:, 2])
                 cost += 5.0 * max(0.0, 0.97 - zax[2])
-            if mode == "handover":
+            if prefer_dir is not None:     # gripper side (e.g. a mug handle) should point this way
+                cost += -float(dvec @ prefer_dir)
+            elif mode == "handover":
                 cost += abs(dvec @ rad_o) - 0.5 * (dvec @ to_own)
             else:
                 reach = np.linalg.norm(sp[:2] - own_base[:2])
@@ -412,12 +416,25 @@ class SkillLibrary:
         spot = env.info.params["targets"]["pour_spot"] if spot is None else spot
         # 1) holder brings the mug to the spot (resting on the table) and keeps holding it
         bottom = self._bottom(into)
-        q_hold, ee_hold, miss = self.held_pose_goal(holder, into, spot, bottom + 0.003, rolls=np.linspace(-2.6, 2.7, 36))
+        # released mug: leave the handle pointing away from the robots, where the holder can reach it again
+        pref = np.array([0.96, -0.29]) if self.pour_release else None
+        q_hold, ee_hold, miss = self.held_pose_goal(holder, into, spot, bottom + 0.003, rolls=np.linspace(-2.6, 2.7, 36),
+                                                    prefer_dir=pref)
         if self.debug:
             print(f"  [pour] holder goal miss={miss:.3f}")
         yield from self.carry_object(holder, into, spot, bottom + 0.003, q_hold[4], z_high=0.10)
         yield from self.move(holder, q_hold, 10)
         yield from self.hold(10)
+        if self.pour_release:
+            # At full tilt the pourer's gripper sits over the mug, where the holder's wrist rises from the handle:
+            # the two arms collide and the spout stops 2-3 cm short. The holder sets the mug down on the spot and
+            # moves clear; the executor's place step re-grasps it afterwards.
+            yield from self.gripper(holder, GRIP_OPEN, 8)
+            yield from self.move_pos(holder, env.ee_pos(holder) + [0, 0, 0.05], 10, transit=False)
+            yield from self.home(holder, 25)
+            if self.belief:
+                self.belief.sync()
+                self.belief.observe(into)      # the mug now rests on the table: look at it again
         # rim position of the mug once it rests on the table at the spot (measured xy, known height)
         M = self._site(into, "top")
         M[:2] = 0.5 * (M[:2] + np.asarray(spot))
@@ -445,6 +462,26 @@ class SkillLibrary:
             q_prev = q
             yield from self.move(pourer, q, 12)
         yield from self.hold(10)
+        if self.pour_feedback:
+            # The loaded, outstretched arm sags under position control: the spout settles 2-3 cm from where the
+            # kinematic IK put it. Measure where the spout actually is (gripper pose from the joints plus the
+            # held-bottle estimate), move the commanded target by the error and solve again.
+            t = np.radians(stages[-1][0])
+            ax = [np.sin(t) * np.cos(h0), np.sin(t) * np.sin(h0), np.cos(t)]
+            tgt = M + [0, 0, stages[-1][1]]
+            cmd_tgt = tgt.copy()
+            for it in range(5):
+                err = tgt - self._site(obj, "spout")
+                if self.debug:
+                    print(f"  [pour] feedback {it}: spout error xy {np.linalg.norm(err[:2]) * 1000:.1f} mm, "
+                          f"z {err[2] * 1000:.1f} mm")
+                if np.linalg.norm(err[:2]) < 0.004 and abs(err[2]) < 0.008:
+                    break
+                cmd_tgt = cmd_tgt + err
+                q, pe, oe = env.ik_tool(pourer, lp, cmd_tgt, la, ax, q_seed=q_prev, local_only=True)
+                q_prev = q
+                yield from self.move(pourer, q, 8)
+                yield from self.hold(6)
         if self.debug:
             sp = env.data.site(f"{obj}_spout").xpos; mt = env.data.site(f"{into}_top").xpos
             bz = env.data.body(obj).xmat.reshape(3, 3)[:, 2]
