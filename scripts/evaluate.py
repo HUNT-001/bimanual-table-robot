@@ -29,6 +29,14 @@ def parse_seeds(s):
     return out
 
 
+from planner.skills import POUR_RELEASE_DIR  # noqa: E402
+
+
+def pour_mode(release):
+    """How the mug is supported while arm A pours: held in arm B's gripper, or set down at the spot by arm B."""
+    return "set-down" if release else "held"
+
+
 def run_seed(kw):
     """One episode. An exception becomes a recorded failure, so one bad seed cannot lose a whole run."""
     try:
@@ -65,10 +73,22 @@ def _run_seed(kw):
     belief = None
     if kw.get("perception"):
         from perception.estimator import Belief, Perceiver
-        belief = Belief(env, Perceiver(kw["perception"], kw.get("perception_device")))
+        belief = Belief(env, Perceiver(kw["perception"], kw.get("perception_device")),
+                        drawer=kw.get("drawer", "kinematic"))
         ex.skills.belief = belief
+        drawer_trace = []    # (believed, true) opening each time the drawer is let go of, to audit the estimate
+        def _track(env_, text, _prev=[None], _cb=ex.frame_cb):
+            h = next((a for a, o in env_.held.items() if o == "drawer"), None)
+            if _prev[0] is not None and h is None:
+                drawer_trace.append(dict(t=int(env_.t), believed_mm=round(belief.drawer_s * 1000, 1),
+                                         true_mm=round(env_.drawer_open() * 1000, 1)))
+            _prev[0] = h
+            if _cb:
+                _cb(env_, text)
+        ex.frame_cb = _track
     ex.skills.pour_release = bool(kw.get("pour_release"))
     ex.skills.pour_feedback = bool(kw.get("pour_feedback"))
+    ex.skills.safe_retreat = bool(kw.get("safe_retreat"))
     plan = RuleParser().parse(instruction)
     if kw.get("stop_after_policy"):
         # picks-only evaluation: end the episode after the last step the learned policy attempts. The task is then
@@ -83,9 +103,12 @@ def _run_seed(kw):
     p = env.info.params
     perc = None
     if belief is not None:
-        perc = dict(observations=belief.log, latency_ms=[round(x, 1) for x in belief.p.latency_ms])
+        perc = dict(observations=belief.log, latency_ms=[round(x, 1) for x in belief.p.latency_ms],
+                    drawer_mode=belief.drawer_mode, drawer=drawer_trace,
+                    drawer_final=dict(believed_mm=round(belief.drawer_s * 1000, 1),
+                                      true_mm=round(env.drawer_open() * 1000, 1)))
         belief.close()
-    out = dict(perception=perc, seed=seed, success=bool(res.success), subgoals={k: bool(v) for k, v in res.subgoals.items()},
+    out = dict(perception=perc, seed=seed, pour_mode=pour_mode(kw.get("pour_release")), success=bool(res.success), subgoals={k: bool(v) for k, v in res.subgoals.items()},
                steps=[dict(text=s.text, ok=bool(s.ok), attempts=s.attempts, executor=s.policy) for s in res.steps],
                sim_time_s=res.sim_steps / 20.0, wall_s=round(res.wall_s, 1), suspended_s=round(res.suspended_s, 1),
                timed_out=res.timed_out, error=None,
@@ -144,6 +167,10 @@ def main():
                     help="with --workers 0: RAM to reserve per worker when sizing the pool from free RAM")
     ap.add_argument("--pour-release", action="store_true",
                     help="pour skill: the holder sets the mug down at the spot and moves clear (re-grasped after)")
+    ap.add_argument("--safe-retreat", action="store_true",
+                    help="after putting the mug or bottle down, move clear of it horizontally before going home")
+    ap.add_argument("--drawer", default="kinematic", choices=("kinematic", "cnn"),
+                    help="with --perception: drawer opening from the holding arm's kinematics (shut at reset) or the CNN")
     ap.add_argument("--pour-feedback", action="store_true",
                     help="pour skill: correct the spout target from the measured arm pose before pouring")
     ap.add_argument("--out", default="results/eval.json")
@@ -168,7 +195,7 @@ def main():
                  no_msaa=a.no_msaa, assist_objects=assist, realism=a.realism,
                  stop_after_policy=a.stop_after_policy, perception=a.perception,
                  perception_device=a.perception_device, pour_release=a.pour_release,
-                 pour_feedback=a.pour_feedback) for s in seeds]
+                 pour_feedback=a.pour_feedback, drawer=a.drawer, safe_retreat=a.safe_retreat) for s in seeds]
     from scripts.env_info import code_revision
     code = code_revision()
     t0 = time.time()
@@ -195,7 +222,9 @@ def main():
         policy_objects=a.policy_objects if a.policy else None,
         grasp=a.grasp, scene=a.scene, policy_threads=a.threads, msaa=not a.no_msaa, assist_objects=list(assist),
         realism=a.realism, perception=a.perception, workers=a.workers, pour_release=a.pour_release,
-        pour_feedback=a.pour_feedback,
+        pour_feedback=a.pour_feedback, pour_mode=pour_mode(a.pour_release),
+        pour_release_dir=list(POUR_RELEASE_DIR) if a.pour_release else None,
+        drawer=a.drawer if a.perception else None, safe_retreat=a.safe_retreat,
         success_rate=n_ok / len(results),
         success_ci95=list(wilson(n_ok, len(results))),
         n_timed_out=n_timeout, n_errors=n_error, timeout_s=a.timeout, max_sim_steps=a.max_sim_steps,
@@ -240,6 +269,9 @@ def main():
     tag = f"  [{a.grasp} grasp{' + weld assist for ' + ','.join(assist) if assist else ''}, {a.scene} scene]" if (a.grasp, a.scene) != ("assist", "legacy") else ""
     md = [f"# Evaluation: {summary['policy']}  ({summary['n']} seeds)"
           + (f"  - learned picks: {a.policy_objects}" if a.policy else "") + tag, "",
+          f"Pour mode: **{summary['pour_mode']}**"
+          + (f"  |  poses from perception ({a.perception}, drawer: {a.drawer})" if a.perception
+             else "  |  poses from the simulator (ground truth)"), "",
           f"**Task success: {summary['success_rate'] * 100:.0f}%** (95% CI {summary['success_ci95'][0] * 100:.0f}-"
           f"{summary['success_ci95'][1] * 100:.0f}%)"
           + (f"  |  strict (droplet pour): {summary['success_strict_rate'] * 100:.0f}%"

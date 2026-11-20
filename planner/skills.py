@@ -15,6 +15,9 @@ CARRY_SLOWDOWN = float(__import__("os").environ.get("BIMANUAL_CARRY_SLOWDOWN", 2
 V2_DRAWER_PULL = 0.13   # assist pull on the v2 drawer (115 mm travel); the cutlery must clear the cabinet top
 TRANSIT_Z = 0.13
 CORRIDOR_X = 0.12
+# set-down pour: preferred handle direction (xy) of the released mug, towards arm B's base (-y). Pointing it along +x
+# (away from both robots) puts the holder's wrist against the open drawer's front, which pushes the drawer shut.
+POUR_RELEASE_DIR = (0.0, -1.0)
 
 
 def _minjerk(n):
@@ -35,6 +38,8 @@ class SkillLibrary:
         self.belief = None
         self.pour_feedback = False      # correct the spout position from the measured arm pose before pouring
         self.pour_release = False       # the holder puts the mug down at the spot and moves clear for the pour
+        self.pour_release_dir = POUR_RELEASE_DIR
+        self.safe_retreat = False       # after putting a mug/bottle down, move clear of it before going home
 
     # ------------------------------------------------------- object state
     def _pos(self, obj):
@@ -210,7 +215,9 @@ class SkillLibrary:
             yield from self._contact_grasp(arm, obj, grasp_point)
             return
         env.set_grasp_halfwidth(arm, 0.005)     # no-op outside contact mode
-        if self.belief and obj not in self.belief.inhand:
+        if self.belief and obj in self.belief.trust_once:
+            self.belief.trust_once.discard(obj)     # just set down by an arm: keep the kinematic estimate once
+        elif self.belief and obj not in self.belief.inhand:
             self._observe(obj)                  # fresh estimate at every attempt
             if grasp_point is not None and obj in ("fork", "spoon"):   # same end, re-estimated
                 grasp_point = min(self.grasp_points(obj), key=lambda e: np.linalg.norm(e - np.asarray(grasp_point)))
@@ -270,6 +277,16 @@ class SkillLibrary:
         yield from self.gripper(arm, GRIP_OPEN, 8)
         yield from self.hold(3)
         yield from self.move_pos(arm, env.ee_pos(arm) + [0, 0, LIFT], 15, transit=False)
+        if self.safe_retreat and obj in ("mug", "bottle"):
+            # The joint-space move home that follows descends while it swings, and the open jaws can clip the top
+            # of the tall object just released (a bottle released a few degrees off vertical rocks upright ~1 cm
+            # towards the arm and is then knocked over). Clear it horizontally first, towards the home position.
+            here = env.ee_pos(arm)
+            home_xy = env.fk(arm, HOME[:5])[0][:2]
+            d = home_xy - here[:2]
+            if np.linalg.norm(d) > 1e-6:
+                yield from self.move_pos(arm, np.r_[here[:2] + 0.07 * d / np.linalg.norm(d), here[2]], 15,
+                                         transit=False)
 
     def _bottom(self, obj):
         """Half-height of the object's main geom (distance from origin to its base)."""
@@ -280,6 +297,7 @@ class SkillLibrary:
         env = self.env
         if self.belief:
             self._observe()
+            self.belief.relocate_drawer()
         h = self._handle()
         env.intent[arm] = "drawer"
         if env.grasp == "contact":
@@ -417,7 +435,7 @@ class SkillLibrary:
         # 1) holder brings the mug to the spot (resting on the table) and keeps holding it
         bottom = self._bottom(into)
         # released mug: leave the handle pointing away from the robots, where the holder can reach it again
-        pref = np.array([0.96, -0.29]) if self.pour_release else None
+        pref = np.asarray(self.pour_release_dir) if self.pour_release else None
         q_hold, ee_hold, miss = self.held_pose_goal(holder, into, spot, bottom + 0.003, rolls=np.linspace(-2.6, 2.7, 36),
                                                     prefer_dir=pref)
         if self.debug:
@@ -433,8 +451,12 @@ class SkillLibrary:
             yield from self.move_pos(holder, env.ee_pos(holder) + [0, 0, 0.05], 10, transit=False)
             yield from self.home(holder, 25)
             if self.belief:
+                # The holder has just put the mug down, so its pose is the in-hand estimate carried by the arm's
+                # kinematics (2-10 mm on dev seeds 400-407). The CNN never saw this layout (mug beside the placed
+                # plate, an arm parked next to it) and is 40-200 mm off here, so the next mug pick starts from
+                # the kinematic estimate too; a retry looks again.
                 self.belief.sync()
-                self.belief.observe(into)      # the mug now rests on the table: look at it again
+                self.belief.trust_once.add(into)
         # rim position of the mug once it rests on the table at the spot (measured xy, known height)
         M = self._site(into, "top")
         M[:2] = 0.5 * (M[:2] + np.asarray(spot))
