@@ -36,6 +36,7 @@ def main():
     ap.add_argument("--summary", default=None,
                     help="evaluation JSON for the closing results card (default: --eval), e.g. the 100-seed run "
                          "when --eval is the 10-seed video run")
+    ap.add_argument("--compare", default=None, help="evaluation JSON on the same seeds to quote on the results card")
     a = ap.parse_args()
     files = sorted(glob.glob(os.path.join(a.videos, "seed_*.mp4")))
     assert files, "no seed videos found"
@@ -75,6 +76,10 @@ def main():
                 f" | pour: {s['pour_mode']}"
             seeds = [e["seed"] for e in res["episodes"]]
             lines.insert(2, f"seeds {min(seeds)}-{max(seeds)}")
+            if a.compare:     # the same seeds with the other pose source
+                c = json.load(open(a.compare))["summary"]
+                lines.insert(3, f"same seeds, {'perception' if c.get('perception') else 'ground-truth poses'}, "
+                                f"pour: {c.get('pour_mode', '?')}: {c['success_rate'] * 100:.0f}%")
         lines += [f"{k}: {v * 100:.0f}%" for k, v in s["subgoal_rates"].items()]
         if os.path.exists(a.bench):
             b = json.load(open(a.bench))
