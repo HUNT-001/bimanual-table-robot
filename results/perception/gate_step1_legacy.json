@@ -1,0 +1,787 @@
+{
+ "train_dir": "data/perception/legacy_train",
+ "n_train": 9500,
+ "n_val": 500,
+ "n_on_disk": 10000,
+ "subset_for_ram": false,
+ "params_m": 11.41,
+ "args": {
+  "train": "data/perception/legacy_train",
+  "dev": "data/perception/legacy_dev",
+  "out": "models/perception/posenet_legacy.pt",
+  "results": "results/perception/gate_step1_legacy.json",
+  "epochs": 30,
+  "batch": 32,
+  "lr": 0.001,
+  "wd": 0.0001,
+  "width": 32,
+  "k": 16,
+  "aux": 1.0,
+  "val_frac": 0.05,
+  "ram_frac": 0.6,
+  "max_n": 0,
+  "seed": 0,
+  "resume": true,
+  "max_minutes": 0
+ },
+ "best_epoch": 23,
+ "val_worst_grasp_p95_mm": 27.05,
+ "train_minutes": 77.7,
+ "stopped_early": false,
+ "history": [
+  {
+   "epoch": 0,
+   "field": 6.792264374526772,
+   "aux": 9.986968614765116,
+   "val_worst_grasp_p95_mm": 339.32,
+   "val_grasp_median_mm": {
+    "plate": 57.13,
+    "mug": 85.61,
+    "bottle": 90.36,
+    "fork": 21.88,
+    "spoon": 25.69
+   },
+   "minutes": 2.5
+  },
+  {
+   "epoch": 1,
+   "field": 4.105842227871354,
+   "aux": 3.7697197601601884,
+   "val_worst_grasp_p95_mm": 314.63,
+   "val_grasp_median_mm": {
+    "plate": 26.83,
+    "mug": 33.07,
+    "bottle": 23.96,
+    "fork": 22.13,
+    "spoon": 23.69
+   },
+   "minutes": 5.1
+  },
+  {
+   "epoch": 2,
+   "field": 2.9196844475494848,
+   "aux": 2.981148408876883,
+   "val_worst_grasp_p95_mm": 310.74,
+   "val_grasp_median_mm": {
+    "plate": 35.1,
+    "mug": 34.74,
+    "bottle": 21.7,
+    "fork": 25.26,
+    "spoon": 21.97
+   },
+   "minutes": 7.7
+  },
+  {
+   "epoch": 3,
+   "field": 2.4579762192191303,
+   "aux": 2.182382072951343,
+   "val_worst_grasp_p95_mm": 274.43,
+   "val_grasp_median_mm": {
+    "plate": 10.77,
+    "mug": 22.02,
+    "bottle": 18.24,
+    "fork": 21.05,
+    "spoon": 17.96
+   },
+   "minutes": 10.4
+  },
+  {
+   "epoch": 4,
+   "field": 1.8734464822588741,
+   "aux": 1.4032717260557253,
+   "val_worst_grasp_p95_mm": 181.14,
+   "val_grasp_median_mm": {
+    "plate": 11.71,
+    "mug": 14.36,
+    "bottle": 11.11,
+    "fork": 19.3,
+    "spoon": 17.28
+   },
+   "minutes": 13.0
+  },
+  {
+   "epoch": 5,
+   "field": 1.3754675094340298,
+   "aux": 1.04305472345771,
+   "val_worst_grasp_p95_mm": 101.54,
+   "val_grasp_median_mm": {
+    "plate": 6.21,
+    "mug": 13.32,
+    "bottle": 7.79,
+    "fork": 13.21,
+    "spoon": 15.03
+   },
+   "minutes": 15.6
+  },
+  {
+   "epoch": 6,
+   "field": 1.0485171558889184,
+   "aux": 0.9120601542495392,
+   "val_worst_grasp_p95_mm": 112.54,
+   "val_grasp_median_mm": {
+    "plate": 4.17,
+    "mug": 10.0,
+    "bottle": 6.62,
+    "fork": 10.22,
+    "spoon": 10.34
+   },
+   "minutes": 18.2
+  },
+  {
+   "epoch": 7,
+   "field": 0.8512076744558038,
+   "aux": 0.7769893812569412,
+   "val_worst_grasp_p95_mm": 107.75,
+   "val_grasp_median_mm": {
+    "plate": 6.32,
+    "mug": 6.89,
+    "bottle": 7.91,
+    "fork": 9.39,
+    "spoon": 9.83
+   },
+   "minutes": 20.8
+  },
+  {
+   "epoch": 8,
+   "field": 0.7543463647566937,
+   "aux": 0.7059293403416067,
+   "val_worst_grasp_p95_mm": 53.19,
+   "val_grasp_median_mm": {
+    "plate": 4.41,
+    "mug": 11.81,
+    "bottle": 6.13,
+    "fork": 8.9,
+    "spoon": 9.56
+   },
+   "minutes": 23.4
+  },
+  {
+   "epoch": 9,
+   "field": 0.6733995946879322,
+   "aux": 0.6321368081545508,
+   "val_worst_grasp_p95_mm": 68.96,
+   "val_grasp_median_mm": {
+    "plate": 3.78,
+    "mug": 6.1,
+    "bottle": 5.88,
+    "fork": 8.04,
+    "spoon": 8.55
+   },
+   "minutes": 26.0
+  },
+  {
+   "epoch": 10,
+   "field": 0.6122514455503708,
+   "aux": 0.5745336387205768,
+   "val_worst_grasp_p95_mm": 47.21,
+   "val_grasp_median_mm": {
+    "plate": 3.76,
+    "mug": 5.98,
+    "bottle": 5.66,
+    "fork": 8.55,
+    "spoon": 8.04
+   },
+   "minutes": 28.6
+  },
+  {
+   "epoch": 11,
+   "field": 0.5617752220179584,
+   "aux": 0.536169017488892,
+   "val_worst_grasp_p95_mm": 44.4,
+   "val_grasp_median_mm": {
+    "plate": 3.85,
+    "mug": 6.65,
+    "bottle": 3.78,
+    "fork": 7.73,
+    "spoon": 7.63
+   },
+   "minutes": 31.2
+  },
+  {
+   "epoch": 12,
+   "field": 0.514778537121979,
+   "aux": 0.4934201847661186,
+   "val_worst_grasp_p95_mm": 46.12,
+   "val_grasp_median_mm": {
+    "plate": 5.03,
+    "mug": 6.79,
+    "bottle": 13.05,
+    "fork": 6.83,
+    "spoon": 8.19
+   },
+   "minutes": 33.8
+  },
+  {
+   "epoch": 13,
+   "field": 0.46302588233673897,
+   "aux": 0.45184248937545596,
+   "val_worst_grasp_p95_mm": 50.66,
+   "val_grasp_median_mm": {
+    "plate": 3.75,
+    "mug": 4.03,
+    "bottle": 2.88,
+    "fork": 6.89,
+    "spoon": 7.5
+   },
+   "minutes": 36.4
+  },
+  {
+   "epoch": 14,
+   "field": 0.4307721998240497,
+   "aux": 0.43656878767384066,
+   "val_worst_grasp_p95_mm": 43.23,
+   "val_grasp_median_mm": {
+    "plate": 3.69,
+    "mug": 4.15,
+    "bottle": 3.82,
+    "fork": 6.55,
+    "spoon": 7.48
+   },
+   "minutes": 39.0
+  },
+  {
+   "epoch": 15,
+   "field": 0.3879055741268235,
+   "aux": 0.3998946885804872,
+   "val_worst_grasp_p95_mm": 39.33,
+   "val_grasp_median_mm": {
+    "plate": 3.49,
+    "mug": 4.1,
+    "bottle": 2.68,
+    "fork": 6.3,
+    "spoon": 6.69
+   },
+   "minutes": 41.6
+  },
+  {
+   "epoch": 16,
+   "field": 0.3486735254928872,
+   "aux": 0.3629585515607048,
+   "val_worst_grasp_p95_mm": 34.48,
+   "val_grasp_median_mm": {
+    "plate": 3.37,
+    "mug": 3.35,
+    "bottle": 2.36,
+    "fork": 6.12,
+    "spoon": 6.34
+   },
+   "minutes": 44.1
+  },
+  {
+   "epoch": 17,
+   "field": 0.3242561410407762,
+   "aux": 0.3399453375589203,
+   "val_worst_grasp_p95_mm": 29.39,
+   "val_grasp_median_mm": {
+    "plate": 3.43,
+    "mug": 2.76,
+    "bottle": 2.42,
+    "fork": 5.54,
+    "spoon": 6.25
+   },
+   "minutes": 46.7
+  },
+  {
+   "epoch": 18,
+   "field": 0.30360447313334493,
+   "aux": 0.31917348111400734,
+   "val_worst_grasp_p95_mm": 30.76,
+   "val_grasp_median_mm": {
+    "plate": 3.23,
+    "mug": 2.99,
+    "bottle": 2.1,
+    "fork": 5.06,
+    "spoon": 5.94
+   },
+   "minutes": 49.3
+  },
+  {
+   "epoch": 19,
+   "field": 0.2853750237641302,
+   "aux": 0.30229309704658147,
+   "val_worst_grasp_p95_mm": 28.5,
+   "val_grasp_median_mm": {
+    "plate": 3.35,
+    "mug": 3.02,
+    "bottle": 1.93,
+    "fork": 5.15,
+    "spoon": 5.66
+   },
+   "minutes": 51.8
+  },
+  {
+   "epoch": 20,
+   "field": 0.26867459080106504,
+   "aux": 0.2849528804622792,
+   "val_worst_grasp_p95_mm": 30.73,
+   "val_grasp_median_mm": {
+    "plate": 3.4,
+    "mug": 3.03,
+    "bottle": 1.67,
+    "fork": 4.78,
+    "spoon": 5.45
+   },
+   "minutes": 54.4
+  },
+  {
+   "epoch": 21,
+   "field": 0.25731456873787417,
+   "aux": 0.2732923647539841,
+   "val_worst_grasp_p95_mm": 31.27,
+   "val_grasp_median_mm": {
+    "plate": 3.23,
+    "mug": 2.82,
+    "bottle": 2.03,
+    "fork": 4.64,
+    "spoon": 5.26
+   },
+   "minutes": 57.0
+  },
+  {
+   "epoch": 22,
+   "field": 0.24738777282874327,
+   "aux": 0.2631684031236816,
+   "val_worst_grasp_p95_mm": 31.74,
+   "val_grasp_median_mm": {
+    "plate": 3.11,
+    "mug": 2.59,
+    "bottle": 2.14,
+    "fork": 4.6,
+    "spoon": 5.21
+   },
+   "minutes": 59.6
+  },
+  {
+   "epoch": 23,
+   "field": 0.24031535822998834,
+   "aux": 0.2538449034799595,
+   "val_worst_grasp_p95_mm": 27.05,
+   "val_grasp_median_mm": {
+    "plate": 3.16,
+    "mug": 2.58,
+    "bottle": 1.42,
+    "fork": 4.54,
+    "spoon": 5.13
+   },
+   "minutes": 62.1
+  },
+  {
+   "epoch": 24,
+   "field": 0.23035014516397104,
+   "aux": 0.24471265198411168,
+   "val_worst_grasp_p95_mm": 30.37,
+   "val_grasp_median_mm": {
+    "plate": 3.1,
+    "mug": 2.47,
+    "bottle": 1.5,
+    "fork": 4.53,
+    "spoon": 5.08
+   },
+   "minutes": 64.7
+  },
+  {
+   "epoch": 25,
+   "field": 0.22702865111264023,
+   "aux": 0.2401353766688624,
+   "val_worst_grasp_p95_mm": 30.94,
+   "val_grasp_median_mm": {
+    "plate": 3.15,
+    "mug": 2.5,
+    "bottle": 1.35,
+    "fork": 4.43,
+    "spoon": 5.0
+   },
+   "minutes": 67.3
+  },
+  {
+   "epoch": 26,
+   "field": 0.22329685429262147,
+   "aux": 0.23449494216490435,
+   "val_worst_grasp_p95_mm": 29.64,
+   "val_grasp_median_mm": {
+    "plate": 3.15,
+    "mug": 2.49,
+    "bottle": 1.51,
+    "fork": 4.38,
+    "spoon": 5.03
+   },
+   "minutes": 69.8
+  },
+  {
+   "epoch": 27,
+   "field": 0.21911529225070733,
+   "aux": 0.22887071020699837,
+   "val_worst_grasp_p95_mm": 29.47,
+   "val_grasp_median_mm": {
+    "plate": 3.19,
+    "mug": 2.4,
+    "bottle": 1.36,
+    "fork": 4.39,
+    "spoon": 4.96
+   },
+   "minutes": 72.5
+  },
+  {
+   "epoch": 28,
+   "field": 0.21889989309616992,
+   "aux": 0.22788752872194792,
+   "val_worst_grasp_p95_mm": 29.64,
+   "val_grasp_median_mm": {
+    "plate": 3.13,
+    "mug": 2.44,
+    "bottle": 1.29,
+    "fork": 4.37,
+    "spoon": 4.95
+   },
+   "minutes": 75.1
+  },
+  {
+   "epoch": 29,
+   "field": 0.21702698094619288,
+   "aux": 0.22544185580635392,
+   "val_worst_grasp_p95_mm": 29.8,
+   "val_grasp_median_mm": {
+    "plate": 3.17,
+    "mug": 2.52,
+    "bottle": 1.28,
+    "fork": 4.34,
+    "spoon": 5.0
+   },
+   "minutes": 77.7
+  }
+ ],
+ "ac_power_at_end": true,
+ "code": {
+  "commit": "2de6b0a",
+  "modified": [
+   "planner/skills.py",
+   "scripts/evaluate.py"
+  ]
+ },
+ "dev_dir": "data/perception/legacy_dev",
+ "n_dev": 1200,
+ "dev_seeds": [
+  400,
+  499
+ ],
+ "dev_eval_s": 2.9,
+ "dev": {
+  "all": {
+   "plate": {
+    "n": 1192,
+    "center_median": 1.24,
+    "center_p95": 3.63,
+    "center_max": 65.01,
+    "grasp_median": 2.65,
+    "grasp_p95": 5.49,
+    "grasp_max": 64.7,
+    "radius_median": 3.13,
+    "radius_p95": 6.44,
+    "radius_max": 7.89
+   },
+   "mug": {
+    "n": 1146,
+    "center_median": 1.92,
+    "center_p95": 5.69,
+    "center_max": 287.61,
+    "grasp_median": 2.6,
+    "grasp_p95": 13.82,
+    "grasp_max": 223.54,
+    "yaw_deg_median": 2.13,
+    "yaw_deg_p95": 13.17,
+    "yaw_deg_max": 179.5,
+    "z_median": 2.27,
+    "z_p95": 4.54,
+    "z_max": 5.4
+   },
+   "bottle": {
+    "n": 1149,
+    "center_median": 1.54,
+    "center_p95": 5.57,
+    "center_max": 252.7,
+    "grasp_median": 1.54,
+    "grasp_p95": 5.57,
+    "grasp_max": 252.7,
+    "z_median": 1.44,
+    "z_p95": 3.31,
+    "z_max": 5.4
+   },
+   "fork": {
+    "n": 845,
+    "center_median": 2.35,
+    "center_p95": 13.21,
+    "center_max": 260.01,
+    "grasp_median": 4.56,
+    "grasp_p95": 29.41,
+    "grasp_max": 277.64,
+    "yaw_deg_median": 4.84,
+    "yaw_deg_p95": 35.06,
+    "yaw_deg_max": 81.26,
+    "z_median": 0.52,
+    "z_p95": 4.12,
+    "z_max": 11.08
+   },
+   "spoon": {
+    "n": 832,
+    "center_median": 2.53,
+    "center_p95": 13.1,
+    "center_max": 384.32,
+    "grasp_median": 4.99,
+    "grasp_p95": 26.86,
+    "grasp_max": 441.86,
+    "yaw_deg_median": 4.63,
+    "yaw_deg_p95": 35.89,
+    "yaw_deg_max": 84.04,
+    "z_median": 0.58,
+    "z_p95": 4.69,
+    "z_max": 13.83
+   },
+   "drawer": {
+    "n": 1200,
+    "opening_median": 11.66,
+    "opening_p95": 39.27,
+    "opening_max": 64.11
+   }
+  },
+  "drawer": {
+   "plate": {
+    "n": 100,
+    "center_median": 0.63,
+    "center_p95": 1.52,
+    "center_max": 2.64,
+    "grasp_median": 2.5,
+    "grasp_p95": 5.14,
+    "grasp_max": 6.21,
+    "radius_median": 3.11,
+    "radius_p95": 6.36,
+    "radius_max": 6.91
+   },
+   "mug": {
+    "n": 96,
+    "center_median": 1.26,
+    "center_p95": 3.27,
+    "center_max": 10.56,
+    "grasp_median": 1.73,
+    "grasp_p95": 5.19,
+    "grasp_max": 8.25,
+    "yaw_deg_median": 1.25,
+    "yaw_deg_p95": 4.94,
+    "yaw_deg_max": 7.55,
+    "z_median": 2.21,
+    "z_p95": 4.47,
+    "z_max": 4.75
+   },
+   "bottle": {
+    "n": 100,
+    "center_median": 0.76,
+    "center_p95": 1.58,
+    "center_max": 1.82,
+    "grasp_median": 0.76,
+    "grasp_p95": 1.58,
+    "grasp_max": 1.82,
+    "z_median": 1.37,
+    "z_p95": 2.39,
+    "z_max": 2.74
+   },
+   "fork": {
+    "n": 100,
+    "center_median": 1.12,
+    "center_p95": 2.21,
+    "center_max": 3.58,
+    "grasp_median": 2.35,
+    "grasp_p95": 3.97,
+    "grasp_max": 5.0,
+    "yaw_deg_median": 2.54,
+    "yaw_deg_p95": 5.15,
+    "yaw_deg_max": 5.68,
+    "z_median": 0.18,
+    "z_p95": 0.53,
+    "z_max": 0.6
+   },
+   "spoon": {
+    "n": 100,
+    "center_median": 1.27,
+    "center_p95": 3.11,
+    "center_max": 4.01,
+    "grasp_median": 2.44,
+    "grasp_p95": 3.96,
+    "grasp_max": 4.92,
+    "yaw_deg_median": 2.69,
+    "yaw_deg_p95": 5.12,
+    "yaw_deg_max": 5.57,
+    "z_median": 0.2,
+    "z_p95": 0.62,
+    "z_max": 0.85
+   },
+   "drawer": {
+    "n": 100,
+    "opening_median": 5.97,
+    "opening_p95": 17.78,
+    "opening_max": 22.63
+   }
+  },
+  "perturbed": {
+   "plate": {
+    "n": 992,
+    "center_median": 1.43,
+    "center_p95": 3.77,
+    "center_max": 65.01,
+    "grasp_median": 2.69,
+    "grasp_p95": 5.61,
+    "grasp_max": 64.7,
+    "radius_median": 3.14,
+    "radius_p95": 6.45,
+    "radius_max": 7.89
+   },
+   "mug": {
+    "n": 954,
+    "center_median": 2.05,
+    "center_p95": 6.25,
+    "center_max": 287.61,
+    "grasp_median": 2.88,
+    "grasp_p95": 15.55,
+    "grasp_max": 223.54,
+    "yaw_deg_median": 2.32,
+    "yaw_deg_p95": 15.51,
+    "yaw_deg_max": 179.5,
+    "z_median": 2.28,
+    "z_p95": 4.55,
+    "z_max": 5.4
+   },
+   "bottle": {
+    "n": 949,
+    "center_median": 1.86,
+    "center_p95": 5.91,
+    "center_max": 252.7,
+    "grasp_median": 1.86,
+    "grasp_p95": 5.91,
+    "grasp_max": 252.7,
+    "z_median": 1.51,
+    "z_p95": 3.4,
+    "z_max": 5.4
+   },
+   "fork": {
+    "n": 745,
+    "center_median": 2.62,
+    "center_p95": 16.12,
+    "center_max": 260.01,
+    "grasp_median": 5.02,
+    "grasp_p95": 31.21,
+    "grasp_max": 277.64,
+    "yaw_deg_median": 5.7,
+    "yaw_deg_p95": 37.77,
+    "yaw_deg_max": 81.26,
+    "z_median": 0.62,
+    "z_p95": 4.24,
+    "z_max": 11.08
+   },
+   "spoon": {
+    "n": 732,
+    "center_median": 2.84,
+    "center_p95": 15.41,
+    "center_max": 384.32,
+    "grasp_median": 5.53,
+    "grasp_p95": 27.89,
+    "grasp_max": 441.86,
+    "yaw_deg_median": 5.46,
+    "yaw_deg_p95": 38.16,
+    "yaw_deg_max": 84.04,
+    "z_median": 0.69,
+    "z_p95": 5.1,
+    "z_max": 13.83
+   },
+   "drawer": {
+    "n": 1000,
+    "opening_median": 12.93,
+    "opening_p95": 40.72,
+    "opening_max": 64.11
+   }
+  },
+  "reset": {
+   "plate": {
+    "n": 100,
+    "center_median": 0.66,
+    "center_p95": 1.54,
+    "center_max": 2.24,
+    "grasp_median": 2.41,
+    "grasp_p95": 4.82,
+    "grasp_max": 5.8,
+    "radius_median": 3.13,
+    "radius_p95": 6.33,
+    "radius_max": 6.63
+   },
+   "mug": {
+    "n": 96,
+    "center_median": 1.36,
+    "center_p95": 3.67,
+    "center_max": 11.03,
+    "grasp_median": 1.73,
+    "grasp_p95": 5.81,
+    "grasp_max": 7.59,
+    "yaw_deg_median": 1.47,
+    "yaw_deg_p95": 4.75,
+    "yaw_deg_max": 8.55,
+    "z_median": 2.26,
+    "z_p95": 4.4,
+    "z_max": 4.78
+   },
+   "bottle": {
+    "n": 100,
+    "center_median": 0.89,
+    "center_p95": 1.54,
+    "center_max": 1.97,
+    "grasp_median": 0.89,
+    "grasp_p95": 1.54,
+    "grasp_max": 1.97,
+    "z_median": 1.13,
+    "z_p95": 2.48,
+    "z_max": 2.8
+   },
+   "drawer": {
+    "n": 100,
+    "opening_median": 6.2,
+    "opening_p95": 19.23,
+    "opening_max": 29.32
+   }
+  }
+ },
+ "gate": {
+  "plate": {
+   "passed": true,
+   "center_median": 1.24,
+   "center_p95": 3.63,
+   "grasp_median": 2.65,
+   "grasp_p95": 5.49
+  },
+  "mug": {
+   "passed": false,
+   "center_median": 1.92,
+   "center_p95": 5.69,
+   "grasp_median": 2.6,
+   "grasp_p95": 13.82
+  },
+  "bottle": {
+   "passed": true,
+   "center_median": 1.54,
+   "center_p95": 5.57,
+   "grasp_median": 1.54,
+   "grasp_p95": 5.57
+  },
+  "fork": {
+   "passed": false,
+   "center_median": 2.35,
+   "center_p95": 13.21,
+   "grasp_median": 4.56,
+   "grasp_p95": 29.41
+  },
+  "spoon": {
+   "passed": false,
+   "center_median": 2.53,
+   "center_p95": 13.1,
+   "grasp_median": 4.99,
+   "grasp_p95": 26.86
+  },
+  "passed": false
+ },
+ "gate_rule": "per object, over all visible dev samples: centre and grasp-point xy error, median <= 3.0 mm and p95 <= 6.0 mm"
+}
