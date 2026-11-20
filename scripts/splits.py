@@ -4,8 +4,9 @@ TRAIN = "100-399"      # demonstration seeds (data/demos)
 DEV = "400-499"        # model selection, tuning, ablations
 TEST = "1000-1099"     # final numbers only; never tuned on
 LEGACY = "0-19"        # seeds the scripted skills were developed on; only for reproducing old tables
+PERCEPTION = "20000-29999"  # rendered scenes for training the object-pose CNN (no demonstrations); never evaluated on
 
-SPLITS = dict(train=TRAIN, dev=DEV, test=TEST, legacy=LEGACY)
+SPLITS = dict(train=TRAIN, dev=DEV, test=TEST, legacy=LEGACY, perception=PERCEPTION)
 
 
 def seeds(name: str) -> list[int]:

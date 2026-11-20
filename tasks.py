@@ -69,7 +69,7 @@ def main():
     if a.task == "test":
         run(PY, "-m", "pytest", "tests", "-q", *(["-m", "not slow"] if a.fast else []))
     elif a.task == "eval":
-        if a.split == "train":
+        if a.split in ("train", "perception"):
             sys.exit("refusing to evaluate on training seeds (see results/SPLITS.md)")
         name = "expert" if not a.policy else os.path.splitext(os.path.basename(a.policy))[0]
         out = a.out or f"results/eval_{name}_{a.split}.json"

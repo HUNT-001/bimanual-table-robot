@@ -1,7 +1,7 @@
 # Seed splits
 
 Every scene is generated from one integer seed (`sim/scene.py::build_scene`), so a seed range is a dataset split.
-The ranges live in `scripts/splits.py`; `python tasks.py eval --split …` reads them from there and refuses `train`.
+The ranges live in `scripts/splits.py`; `python tasks.py eval --split …` reads them from there and refuses `train` and `perception`.
 
 | Split | Seeds | Use | Rule |
 |---|---|---|---|
@@ -9,8 +9,9 @@ The ranges live in `scripts/splits.py`; `python tasks.py eval --split …` reads
 | dev | 400–499 | Model selection, hyper-parameters, ablations, thresholds, physics tuning | The only split decisions are made on |
 | test | 1000–1099 | Final numbers | Run once per reported system; never tuned on |
 | legacy | 0–19 | Seeds the scripted skills were developed on (0–9) and the first held-out check (10–19) | Only to reproduce the tables of the first submission |
+| perception | 20000–29999 | Rendered scenes (reset, drawer-open and perturbed layouts, no demonstrations) for the object-pose CNN, `perception/generate.py` | Never evaluated on; the checkpoint is chosen on the last 5 % of these seeds, the gate is measured on dev |
 
-Seeds outside these ranges are unused. New data collection must stay inside 100–399 or use a new range that is
+Seeds outside these ranges are unused. The perception range was added on 2026-11-20, before any data was generated in it. New data collection must stay inside 100–399 or use a new range that is
 added to this file first.
 
 ## Scene versions
