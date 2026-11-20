@@ -18,6 +18,33 @@ def keep_awake(on: bool = True):
     return bool(ctypes.windll.kernel32.SetThreadExecutionState(flags))
 
 
+def prefer_nvidia_gl() -> bool:
+    """On a Windows Optimus laptop, OpenGL contexts go to the integrated GPU unless the process has loaded the
+    NVIDIA driver. Loading nvcuda.dll before the first GL context sends MuJoCo rendering to the NVIDIA GPU (on this
+    machine: 2 ms instead of about 106 ms for two cameras). Importing torch has the same side effect, which is why
+    the Phase 0 render benchmark was fast. Returns True if the DLL was loaded."""
+    if sys.platform != "win32":
+        return False
+    try:
+        ctypes.WinDLL("nvcuda.dll")
+        return True
+    except OSError:
+        return False
+
+
+def gl_renderer() -> str:
+    try:
+        import mujoco
+        from OpenGL import GL
+        ctx = mujoco.GLContext(16, 16)
+        ctx.make_current()
+        name = GL.glGetString(GL.GL_RENDERER).decode()
+        ctx.free()
+        return name
+    except Exception as exc:
+        return f"unknown ({type(exc).__name__})"
+
+
 def free_ram_gb() -> float | None:
     if sys.platform == "win32":
         class MS(ctypes.Structure):

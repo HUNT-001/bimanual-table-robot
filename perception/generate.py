@@ -43,8 +43,9 @@ def done_seeds(out):
 
 
 def main(argv=None):
+    from perception.sysutil import Heartbeat, gl_renderer, keep_awake, on_ac_power, prefer_nvidia_gl
+    prefer_nvidia_gl()                      # before any GL context exists
     from perception import labels as L
-    from perception.sysutil import Heartbeat, keep_awake, on_ac_power
     from sim.env import DinnerTableEnv
     from scripts.splits import split_of
     ap = argparse.ArgumentParser()
@@ -78,7 +79,12 @@ def main(argv=None):
     todo = [s for s in seeds if s not in have]
     if a.max_seeds:
         todo = todo[:a.max_seeds]
-    print(f"{len(have)} seeds already on disk, {len(todo)} to generate x {a.variants} variants; AC power: {on_ac_power()}")
+    gl = gl_renderer()
+    print(f"{len(have)} seeds already on disk, {len(todo)} to generate x {a.variants} variants; AC power: "
+          f"{on_ac_power()}; OpenGL: {gl}")
+    with open(os.path.join(a.out, "runs.jsonl"), "a") as f:
+        f.write(json.dumps(dict(time=time.strftime("%Y-%m-%d %H:%M:%S"), seeds=a.seeds, new_seeds=len(todo),
+                                gl_renderer=gl, ac_power=on_ac_power())) + "\n")
     keep_awake(True)
     env = DinnerTableEnv(seed=todo[0] if todo else 0, scene=a.scene, grasp=a.grasp, realism=a.realism)
     views = L.Views(tuple(a.hw))
