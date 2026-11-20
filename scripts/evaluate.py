@@ -67,6 +67,8 @@ def _run_seed(kw):
         from perception.estimator import Belief, Perceiver
         belief = Belief(env, Perceiver(kw["perception"], kw.get("perception_device")))
         ex.skills.belief = belief
+    ex.skills.pour_release = bool(kw.get("pour_release"))
+    ex.skills.pour_feedback = bool(kw.get("pour_feedback"))
     plan = RuleParser().parse(instruction)
     if kw.get("stop_after_policy"):
         # picks-only evaluation: end the episode after the last step the learned policy attempts. The task is then
@@ -140,6 +142,10 @@ def main():
     ap.add_argument("--perception-device", default=None, help="torch device for the CNN (default: cuda if present)")
     ap.add_argument("--worker-gb", type=float, default=1.5,
                     help="with --workers 0: RAM to reserve per worker when sizing the pool from free RAM")
+    ap.add_argument("--pour-release", action="store_true",
+                    help="pour skill: the holder sets the mug down at the spot and moves clear (re-grasped after)")
+    ap.add_argument("--pour-feedback", action="store_true",
+                    help="pour skill: correct the spout target from the measured arm pose before pouring")
     ap.add_argument("--out", default="results/eval.json")
     a = ap.parse_args()
     if a.grasp == "contact" and a.scene == "legacy":
@@ -161,7 +167,8 @@ def main():
                  video_every=a.video_every, video_height=a.video_height, no_shadows=a.no_shadows,
                  no_msaa=a.no_msaa, assist_objects=assist, realism=a.realism,
                  stop_after_policy=a.stop_after_policy, perception=a.perception,
-                 perception_device=a.perception_device) for s in seeds]
+                 perception_device=a.perception_device, pour_release=a.pour_release,
+                 pour_feedback=a.pour_feedback) for s in seeds]
     from scripts.env_info import code_revision
     code = code_revision()
     t0 = time.time()
@@ -187,7 +194,8 @@ def main():
         code=code, instruction=a.instruction, policy=a.policy or "scripted-expert", device=a.device, n=len(results),
         policy_objects=a.policy_objects if a.policy else None,
         grasp=a.grasp, scene=a.scene, policy_threads=a.threads, msaa=not a.no_msaa, assist_objects=list(assist),
-        realism=a.realism, perception=a.perception, workers=a.workers,
+        realism=a.realism, perception=a.perception, workers=a.workers, pour_release=a.pour_release,
+        pour_feedback=a.pour_feedback,
         success_rate=n_ok / len(results),
         success_ci95=list(wilson(n_ok, len(results))),
         n_timed_out=n_timeout, n_errors=n_error, timeout_s=a.timeout, max_sim_steps=a.max_sim_steps,
